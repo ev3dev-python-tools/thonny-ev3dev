@@ -10,14 +10,14 @@ for line in open(os.path.join(setupdir, 'requirements.txt'), encoding="UTF-8"):
         requirements.append(line)
 
 setup(
-      name="thonny-ev3python",
+      name="thonny-ev3dev",
       version="0.1",
       description="A plug-in which adds EV3 support for Thonny",
       long_description="""This is a plug-in for Thonny which adds EV3 python support. 
 More info about Thonny: http://thonny.org.""",
-      url="https://www.github.com/harcokuppens/thonny-ev3python",
+      url="https://www.github.com/harcokuppens/thonny-ev3dev",
       author="Harco Kuppens",
-	  author_email="h.kuppens@cs.ru.nl",
+      author_email="h.kuppens@cs.ru.nl",
       license="MIT",
       classifiers=[
         "Environment :: MacOS X",
@@ -45,7 +45,7 @@ More info about Thonny: http://thonny.org.""",
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.4",
-	  package_data={'thonnycontrib.ev3python': ['dummy_modules/*',  'res/*']},
+	  package_data={'thonnycontrib.ev3dev': ['dummy_modules/*',  'res/*']},
       install_requires=requirements,
-      packages=["thonnycontrib.ev3python"],
+      packages=["thonnycontrib.ev3dev","ev3cmd"],
 )
