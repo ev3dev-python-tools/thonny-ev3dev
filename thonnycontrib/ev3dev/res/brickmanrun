@@ -1,0 +1,17 @@
+#!/bin/bash
+
+runprogram(){
+  program=$(realpath "$1")
+  errlogfile="$program".err.log
+  directory=$(dirname "$program")
+  /usr/bin/brickrun --directory $directory -- $program 2> $errlogfile  
+  if [[ ! -s $errlogfile ]]
+  then 
+     rm -f $errlogfile
+  fi
+}
+
+
+# redirect stdout to /dev/null otherwise remote ssh connection won't disconnect
+runprogram "$1" >/dev/null &
+
