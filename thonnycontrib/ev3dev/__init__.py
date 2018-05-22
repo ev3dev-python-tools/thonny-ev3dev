@@ -154,18 +154,6 @@ def currentscript_and_command_enabled():
 
 
 
-def patch_ev3():
-    """Patch EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','patch']
-    env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
-    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
-    dlg.wait_window()
-
-
-
 
 def upload(file=None):
     """Uploads given .py file to EV3."""
@@ -234,16 +222,16 @@ def start_current_script():
         showerror("Error", error_msg)
 
 
-def download_log(file=None):
+def download_log(srcpath=None):
     """Uploads given .py file to EV3."""
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','download',"--force"]
-    if file != None:
+    if srcpath != None:
         # take basename to find it in on the ev3 on the user's homedir!
         # also add ".err.log" if file doesn't end with it!
-        file=os.path.basename(file.strip())
-        if not file.endswith(".err.log"):
-            file=file + ".err.log"
-        list.append(file)
+        srcpath=os.path.basename(srcpath.strip())
+        if not srcpath.endswith(".err.log"):
+            srcpath=srcpath + ".err.log"
+        list.append(srcpath)
     else:
         return
     env = os.environ.copy()
@@ -253,21 +241,27 @@ def download_log(file=None):
     dlg = MySubprocessDialog(get_workbench(), proc, "Downloading log of program from EV3", autoclose=True)
     dlg.wait_window()
     if dlg.returncode == 0:
-        get_workbench().get_editor_notebook().show_file(file)
+        from pathlib import Path
+        home = str(Path.home())
+        destpath=os.path.join(home,srcpath)
+        get_workbench().get_editor_notebook().show_file(destpath)
+
+        get_workbench().get_current_editor()._load_file(destpath)
+        get_workbench().get_current_editor().get_text_widget().edit_modified(False)
+
+        #get_workbench().get_editor_notebook().update_editor_title(get_workbench().get_current_editor())
+        #get_workbench().get_editor_notebook().update_appearance()
 
 
 
 def download_log_of_current_script():
     """upload current python script to EV3"""
-    current_editor = get_workbench().get_editor_notebook().get_current_editor()
-    code = current_editor.get_text_widget().get("1.0", "end")
     try:
-        ast.parse(code)
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
-        py_file = get_workbench().get_current_editor().save_file(False)
-        if py_file is None:
+        src_file = get_workbench().get_current_editor().get_filename(False)
+        if src_file is None:
             return
-        download_log(py_file)
+        download_log(src_file)
     except Exception:
         error_msg = traceback.format_exc(0)+'\n'
         showerror("Error", error_msg)
@@ -281,6 +275,18 @@ def cleanup_files_on_ev3():
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=False)
     dlg.wait_window()
+
+
+def patch_ev3():
+    """Patch EV3."""
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','patch']
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
+    dlg.wait_window()
+
 
 
 

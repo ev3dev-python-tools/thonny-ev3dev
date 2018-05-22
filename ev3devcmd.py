@@ -89,12 +89,17 @@ def start(args):
     ssh.close()
 
 def download(args):
+
+
     srcpath=args.file
     destpath=os.path.basename(srcpath)
 
     if srcpath[0] != "." and srcpath[0] != "/" and srcpath[0] != "\\":
         srcpath='/home/'+ args.username + '/' + srcpath
 
+    from pathlib import Path
+    home = str(Path.home())
+    destpath=os.path.join(home,destpath)
 
     if os.path.isfile(destpath) and not args.force:
         print("Failed to download because destination '{0}' already exists. Use --force option to force overwriting.".format(destpath),file=sys.stderr)
@@ -109,17 +114,22 @@ def download(args):
         ssh.close()
         sys.exit(1)
 
+    print("ftp.get({0}, {1}".format(srcpath, destpath))
+
+
+
+
     try:
         ftp.get(srcpath, destpath)
     except IOError:
-        print("Failed to download the file on the ev3 at '{0}'.".format(srcpath),file=sys.stderr)
+        print("Failed to download the file on the ev3 at '{0}  to file '{1}'.".format(srcpath),file=sys.stderr)
         ftp.close()
         ssh.close()
         sys.exit(1)
 
     ftp.close()
     ssh.close()
-    print("succesfully downloaded the file on ev3 at '{0}' to file '{1}' in current working directory.".format(srcpath,destpath) )
+    print("succesfully downloaded the file on ev3 at '{0}' to file '{1}'.".format(srcpath,destpath) )
 
 def listfiles(args):
 
