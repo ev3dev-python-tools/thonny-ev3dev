@@ -48,6 +48,6 @@ More info about Thonny: http://thonny.org.""",
 	  package_data={'thonnycontrib.ev3dev': ['dummy_modules/*',  'res/*']},
       install_requires=requirements,
       packages=["thonnycontrib.ev3dev"],
-      py_modules=["ev3cmd","thonny.shared.thonny-ev3dev"],
-      scripts=['bin/ev3cmd']
+      py_modules=["ev3dev-cmd","thonny.shared.ev3dev-context"],
+      scripts=['bin/ev3dev']
 )

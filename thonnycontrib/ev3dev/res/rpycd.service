@@ -1,0 +1,8 @@
+[Unit]
+Description=Classic rpyc server 
+After=default.target
+
+[Service]
+Type=simple
+#WorkingDirectory=/home/robot/
+ExecStart=/usr/bin/rpyc_classic.py

@@ -154,7 +154,7 @@ def currentscript_and_command_enabled():
 
 def upload(file=None):
     """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3cmd','upload']
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','upload','--force']
     if file != None:
         list.append(file)
     else:
@@ -184,22 +184,25 @@ def upload_current_script():
 
 
 
-#TODO
+
 def start(file=None):
-    """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3cmd','start']
+    """ Starts given .py file on the EV3.
+        Note: thonny-ev3dev plugin assumes file in user's (thonny)  homedir on ev3
+    """
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','start']
     if file != None:
-        list.append(file)
+        # take basename to find it in on the ev3 on the user's homedir!
+        list.append(os.path.basename(file))
     else:
         return
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Start program on EV3", autoclose=True)
     dlg.wait_window()
 
-#TODO
+
 def start_current_script():
     """upload current python script to EV3"""
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
@@ -215,11 +218,16 @@ def start_current_script():
         error_msg = traceback.format_exc(0)+'\n'
         showerror("Error", error_msg)
 
-#TODO
+
 def download_log(file=None):
     """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3cmd','fetchlog']
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','download',"--force"]
     if file != None:
+        # take basename to find it in on the ev3 on the user's homedir!
+        # also add ".err.log" if file doesn't end with it!
+        file=os.path.basename(file.strip())
+        if not file.endswith(".err.log"):
+            file=file + ".err.log"
         list.append(file)
     else:
         return
@@ -227,10 +235,13 @@ def download_log(file=None):
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Downloading log of program from EV3", autoclose=True)
     dlg.wait_window()
+    if dlg.returncode == 0:
+        get_workbench().get_editor_notebook().show_file(file)
 
-#TODO
+
+
 def download_log_of_current_script():
     """upload current python script to EV3"""
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
@@ -248,12 +259,12 @@ def download_log_of_current_script():
 
 def cleanup_files_on_ev3():
     """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3cmd','clean']
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','cleanup']
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=False)
     dlg.wait_window()
 
 

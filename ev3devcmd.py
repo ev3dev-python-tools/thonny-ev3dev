@@ -160,9 +160,105 @@ def delete(args):
     ssh.close()
     print("succesfully deleted on ev3 the file: " + destpath)
 
+
+def patch(args):
+
+    # patch
+    #  - ev3devcontext.py  :  thonny/shared/ev3devcontext.py  => ev3:/usr/lib/python3/dist-packages/
+    #  - rpyc systemd
+    #          sudo apt-get install rpyc       => problem need network on ev3!!
+
+    # import urllib.request
+    # import tempfile
+    #
+    # # Download the file from `url` and save it locally
+    # url='https://github.com/tomerfiliba/rpyc/archive/3.4.4.zip'
+    # tempdir=tempfile.gettempdir()
+    # distfile=os.path.join(tempdir,'rpyc-3.4.4.zip')
+    # distfile_ev3 ='/tmp/rpyc-3.4.4.zip'
+    # urllib.request.urlretrieve(url,distfile)
+    #
+    ssh=sshconnect(args)
+    ftp = ssh.open_sftp()
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','brickmanrun'), '/tmp/brickmanrun')
+    ftp.chmod('/tmp/brickmanrun', 0o775)
+
+
+
+    ## next doesn't work, probably because use of pipe
+    # ssh.exec_command('echo maker | sudo -S mv /tmp/rpycd.service /etc/systemd/system/rpycd.service',get_pty=True)
+
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/brickmanrun /usr/bin/brickmanrun',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+
+    data = stdout.read().splitlines()
+    #for line in data:
+    #    print(line)
+
+    data = stderr.read().splitlines()
+    #for line in data:
+    #    print(line,file=sys.stderr)
+
+
+    ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','rpycd.service'), '/tmp/rpycd.service')
+
+
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/rpycd.service /etc/systemd/system/rpycd.service',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
+
+
+    stdin, stdout, stderr = ssh.exec_command('sudo systemctl start rpycd.service',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
+
+
+
+    ftp.put(os.path.join(dir_path,'thonny','shared','ev3devcontext.py'), '/tmp/ev3devcontext.py')
+
+
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
+
+
+
+    # ftp.put(distfile, distfile_ev3)
+    #
+    # #ssh("ls")
+    # #ssh.exec_command("cd /tmp")
+    # #ssh.exec_command("pwd > /tmp/out.txt")
+    #
+    # ssh.exec_command("python3 -m zipfile -e /tmp/rpyc-3.4.4.zip /tmp/")
+    #
+    # ssh.exec_command("cd /tmp/rpyc-3.4.4/; python3 setup.py install")
+    #
+    # #https://stackoverflow.com/questions/6270677/how-to-run-sudo-with-paramiko-python
+
+    # /usr/lib/python3/dist-packages/rpyc
+    #  utils/classic.py
+    #  core/service.py
+
+    #  /usr/bin/rpyc_classic.py
+    ftp.close()
+    ssh.close()
+
+
 def cleanup(args):
 
     # only allow cleanup of homedir; other operations to dangerous
+    # note: assumes no subdirs are in homedir, and if they are there, then the cleanup
+    #       prints an error when it fails in deleting an directory as an file
     args.dir='/home/'+args.username + '/'
 
     ssh=sshconnect(args)
@@ -182,7 +278,10 @@ def cleanup(args):
         if item[0]==".": continue
 
         print("    delete " + args.dir + item)
-        ftp.remove(args.dir + item)
+        try:
+           ftp.remove(args.dir + item)
+        except IOError:
+            print("    Failed to delete '{0}'.".format(args.dir + item),file=sys.stderr)
 
     ftp.close()
     ssh.close()
@@ -203,7 +302,7 @@ def main(argv=None):
     default_password=os.environ.get('EV3PASSWORD') or 'maker'
 
 
-    parser = argparse.ArgumentParser(prog='ev3cmd')
+    parser = argparse.ArgumentParser(prog='ev3dev')
     parser.add_argument('-a', '--address',action='store',default=default_ip,help="network address of ev3. Can also be set with EV3IP environment variable.")
     parser.add_argument('-u', '--username',action='store',default=default_user,help="username used to login with ssh on ev3. Can also be set with EV3USERNAME environment variable.")
     parser.add_argument('-p', '--password',action='store',default=default_password,help="password used to login with ssh on ev3. Can also be set with EV3PASSWORD environment variable.")
@@ -237,6 +336,10 @@ def main(argv=None):
     # create the parser for the "clean" command
     parser_clean = subparsers.add_parser('cleanup', help='delete all files in home folder on ev3')
     parser_clean.set_defaults(func=cleanup)
+
+    # create the parser for the "clean" command
+    parser_patch = subparsers.add_parser('patch', help='patch the ev3 for thonny-ev3dev when just having installed a newly installed ev3dev image')
+    parser_patch.set_defaults(func=patch)
 
     # parse args,
     args=parser.parse_args(argv[1:])
