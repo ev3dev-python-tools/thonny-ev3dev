@@ -152,6 +152,21 @@ def currentscript_and_command_enabled():
            )
 
 
+
+
+def patch_ev3():
+    """Patch EV3."""
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','patch']
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
+    dlg.wait_window()
+
+
+
+
 def upload(file=None):
     """Uploads given .py file to EV3."""
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','upload','--force']
@@ -310,12 +325,20 @@ def load_plugin():
                                 group=20,
                                 image_filename=image_path_remoterun,
                                 include_in_toolbar=True)
-    get_workbench().add_command("ev3emotedebug", "run", "Debug current script using the EV3 API in remote control mode" ,
+    get_workbench().add_command("ev3remotedebug", "run", "Debug current script using the EV3 API in remote control mode" ,
                                 get_button_handler_for_magiccmd_on_current_file("Ev3RemoteDebug"),
                                 currentscript_and_command_enabled,
                                 default_sequence="<Control-F9>",
                                 group=20,
                                 image_filename=image_path_remotedebug,
+                                include_in_toolbar=True)
+
+    get_workbench().add_command("ev3patch", "tools", "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin",
+                                patch_ev3,
+                                command_enabled,
+                                default_sequence=None,
+                                group=270,
+                                #image_filename=image_path_upload,
                                 include_in_toolbar=True)
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
@@ -340,7 +363,7 @@ def load_plugin():
                                 image_filename=image_path_log,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3clean", "tools", "Cleanup EV3 by deleting all files stored on EV3",
+    get_workbench().add_command("ev3clean", "tools", "Cleanup EV3 by deleting all files stored in homedir on EV3",
                                 cleanup_files_on_ev3,
                                 command_enabled,
                                 default_sequence=None,

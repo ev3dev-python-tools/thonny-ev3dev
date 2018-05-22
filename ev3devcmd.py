@@ -177,11 +177,14 @@ def patch(args):
     # distfile=os.path.join(tempdir,'rpyc-3.4.4.zip')
     # distfile_ev3 ='/tmp/rpyc-3.4.4.zip'
     # urllib.request.urlretrieve(url,distfile)
-    #
+
+
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    print("add /usr/bin/brickmanrun")
 
     ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','brickmanrun'), '/tmp/brickmanrun')
     ftp.chmod('/tmp/brickmanrun', 0o775)
@@ -204,6 +207,9 @@ def patch(args):
     #    print(line,file=sys.stderr)
 
 
+
+    print("add /etc/systemd/system/rpycd.service")
+
     ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','rpycd.service'), '/tmp/rpycd.service')
 
 
@@ -213,6 +219,7 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
+    print("start rpycd.service")
 
     stdin, stdout, stderr = ssh.exec_command('sudo systemctl start rpycd.service',get_pty=True)
     stdin.write(args.password+'\n')
@@ -220,7 +227,7 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
-
+    print("add /usr/lib/python3/dist-packages/ev3devcontext.py")
 
     ftp.put(os.path.join(dir_path,'thonny','shared','ev3devcontext.py'), '/tmp/ev3devcontext.py')
 
@@ -231,27 +238,11 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
+    print("patch finished succesfull")
 
-
-    # ftp.put(distfile, distfile_ev3)
-    #
-    # #ssh("ls")
-    # #ssh.exec_command("cd /tmp")
-    # #ssh.exec_command("pwd > /tmp/out.txt")
-    #
-    # ssh.exec_command("python3 -m zipfile -e /tmp/rpyc-3.4.4.zip /tmp/")
-    #
-    # ssh.exec_command("cd /tmp/rpyc-3.4.4/; python3 setup.py install")
-    #
-    # #https://stackoverflow.com/questions/6270677/how-to-run-sudo-with-paramiko-python
-
-    # /usr/lib/python3/dist-packages/rpyc
-    #  utils/classic.py
-    #  core/service.py
-
-    #  /usr/bin/rpyc_classic.py
     ftp.close()
     ssh.close()
+
 
 
 def cleanup(args):
