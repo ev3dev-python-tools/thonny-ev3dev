@@ -47,5 +47,7 @@ More info about Thonny: http://thonny.org.""",
       python_requires=">=3.4",
 	  package_data={'thonnycontrib.ev3dev': ['dummy_modules/*',  'res/*']},
       install_requires=requirements,
-      packages=["thonnycontrib.ev3dev","ev3cmd"],
+      packages=["thonnycontrib.ev3dev"],
+      py_modules=["ev3cmd","thonny.shared.thonny-ev3dev"],
+      scripts=['bin/ev3cmd']
 )
