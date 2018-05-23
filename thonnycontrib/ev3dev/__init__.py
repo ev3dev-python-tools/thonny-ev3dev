@@ -284,7 +284,7 @@ def patch_ev3():
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Install additions to a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
     dlg.wait_window()
 
 
@@ -339,13 +339,13 @@ def load_plugin():
                                 image_filename=image_path_remotedebug,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3patch", "tools", "Patch a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin",
+    get_workbench().add_command("ev3patch", "tools", "Install additions to a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin",
                                 patch_ev3,
                                 command_enabled,
                                 default_sequence=None,
                                 group=270,
                                 #image_filename=image_path_upload,
-                                include_in_toolbar=True)
+                                include_in_toolbar=False)
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
                                 upload_current_script,
