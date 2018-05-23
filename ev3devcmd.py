@@ -339,7 +339,7 @@ def main(argv=None):
     parser_clean.set_defaults(func=cleanup)
 
     # create the parser for the "clean" command
-    parser_patch = subparsers.add_parser('patch', help='install additions on the ev3 for thonny-ev3dev when just having installed a newly installed ev3dev image')
+    parser_patch = subparsers.add_parser('install_additions', help='install additions on the ev3 for thonny-ev3dev when just having installed a newly installed ev3dev image')
     parser_patch.set_defaults(func=patch)
 
     # parse args,
