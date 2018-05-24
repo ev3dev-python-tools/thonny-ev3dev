@@ -241,7 +241,8 @@ def patch(args):
     # for line in data:
     #     print(line,file=sys.stderr)
 
-    #rint("start rpycd.service")
+    print("start rpycd.service")
+    
     stdin, stdout, stderr = ssh.exec_command('sudo systemctl start rpycd.service',get_pty=True)
     stdin.write(args.password+'\n')
     stdin.flush()
