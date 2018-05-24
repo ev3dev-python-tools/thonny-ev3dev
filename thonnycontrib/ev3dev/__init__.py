@@ -7,6 +7,8 @@ from thonny.globals import register_runner, get_runner
 
 from thonny.misc_utils import running_on_mac_os, running_on_windows, running_on_linux
 
+from thonny.config_ui import ConfigurationPage
+from thonny.ui_utils import create_string_var
 
 from tkinter import ttk, messagebox
 from tkinter.dialog import Dialog
@@ -31,7 +33,6 @@ import textwrap
 import tokenize
 
 
-myip='192.168.0.1'
 
 
 from thonny.common import serialize_message, ToplevelCommand, \
@@ -123,7 +124,7 @@ def currentfile_magiccmd_handler(cmd_line):
                               args=args[1:])
 
         if origcommand == "Ev3RemoteRun" or origcommand == "Ev3RemoteDebug":
-            cmd.environment={ "EV3MODE" : "remote", "EV3IP": myip }
+            cmd.environment={ "EV3MODE" : "remote", "EV3IP": get_workbench().get_option("ev3.ip") }
 
         if os.path.isabs(cmd.filename):
             cmd.full_filename = cmd.filename
@@ -149,19 +150,33 @@ def command_enabled():
 def currentscript_and_command_enabled():
     return (get_workbench().get_editor_notebook().get_current_editor() is not None
             and get_runner().get_state() == "waiting_toplevel_command"
+            and get_workbench().get_editor_notebook().get_current_editor().get_filename().endswith(".py")
            )
 
 
 
 
 
+def get_base_ev3dev_cmd():
+
+    basecmd = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd']
+
+    ip=get_workbench().get_option("ev3.ip")
+    username=get_workbench().get_option("ev3.username")
+    password=get_workbench().get_option("ev3.password")
+
+    credentials = [ "-a", ip, "-u", username, "-p", password]
+
+    return basecmd + credentials
+
+
 def upload(file=None):
     """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','upload','--force']
-    if file != None:
-        list.append(file)
-    else:
+
+    if file == None:
         return
+    list = get_base_ev3dev_cmd() + ['upload','--force', file]
+
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -175,11 +190,23 @@ def upload_current_script():
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
     code = current_editor.get_text_widget().get("1.0", "end")
     try:
+        filename= current_editor.get_filename()
+        if not filename.endswith(".py"):
+            return
+
         ast.parse(code)
+
+        if not code.startswith('#!'):
+            if tkMessageBox.askokcancel("Shebang", "To make a python file on the EV3 executable Thonny prepends the shebang line:\n\n      !#/usr/bin/env python3\n"):
+                current_editor.get_text_widget().direct_insert("1.0", "#!/usr/bin/env python3\n")
+            else:
+               return
+
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
-        py_file = get_workbench().get_current_editor().save_file(False)
+        py_file = current_editor.save_file(False)
         if py_file is None:
             return
+
         upload(py_file)
     except Exception:
         error_msg = traceback.format_exc(0)+'\n'
@@ -192,12 +219,14 @@ def start(file=None):
     """ Starts given .py file on the EV3.
         Note: thonny-ev3dev plugin assumes file in user's (thonny)  homedir on ev3
     """
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','start']
-    if file != None:
-        # take basename to find it in on the ev3 on the user's homedir!
-        list.append(os.path.basename(file))
-    else:
+
+    if file == None:
         return
+    # take basename to find it in on the ev3 on the user's homedir!
+    file = os.path.basename(file)
+    list = get_base_ev3dev_cmd() + ['start', file]
+
+
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -223,8 +252,11 @@ def start_current_script():
 
 
 def download_log(srcpath=None):
-    """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','download',"--force"]
+    """downloads log of given .py file from EV3."""
+
+    if srcpath == None:
+        return
+    list = get_base_ev3dev_cmd() + ['download','--force']
     if srcpath != None:
         # take basename to find it in on the ev3 on the user's homedir!
         # also add ".err.log" if file doesn't end with it!
@@ -232,8 +264,7 @@ def download_log(srcpath=None):
         if not srcpath.endswith(".err.log"):
             srcpath=srcpath + ".err.log"
         list.append(srcpath)
-    else:
-        return
+
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -267,8 +298,10 @@ def download_log_of_current_script():
         showerror("Error", error_msg)
 
 def cleanup_files_on_ev3():
-    """Uploads given .py file to EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','cleanup']
+    """cleanup files in homedir on EV3."""
+
+    list = get_base_ev3dev_cmd() + ['cleanup']
+
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -278,20 +311,75 @@ def cleanup_files_on_ev3():
 
 
 def patch_ev3():
-    """Patch EV3."""
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd','patch']
+    """Install additions needed for thonny-ev3dev plugin on EV3."""
+    list = get_base_ev3dev_cmd() + ['install_additions']
+
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Install additions to a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin", autoclose=False)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Install thonny-ev3dev plugin additions to the ev3dev sdcard", autoclose=False)
     dlg.wait_window()
+
+
+
+class Ev3ConfigurationPage(ConfigurationPage):
+    """
+     configure:
+      * ip address
+      * username
+      * password
+    """
+
+
+    def __init__(self, master):
+        ConfigurationPage.__init__(self, master)
+
+        ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
+        workbench=get_workbench()
+
+        for name in ('ip','username','password'):
+            self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
+        self.makeentry( "IP address:", self.ip, width=10)
+        self.makeentry( "User name:", self.username, width=10)
+        self.makeentry( "Password:", self.password, width=10)   #, show="*")
+
+    def makeentry(self,caption, variable, **options):
+        row = ttk.Frame(self)
+        label=ttk.Label(row, width=15, text=caption, anchor='w')
+        entry = ttk.Entry(row,textvariable=variable, **options)
+
+        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        label.pack(side=tk.LEFT)
+        entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+        return entry
+
+    def apply(self):
+        workbench=get_workbench()
+        for name in ('ip','username','password'):
+            variable=self.__dict__[name]
+            if variable.modified:
+                value = variable.get()
+                workbench.set_option("ev3."+name, value)
+
+
+
 
 
 
 
 def load_plugin():
-    """Adds upload button on GUI and commands under Tools menu."""
+    """Adds EV3 buttons on toolbar and commands under Run and Tools menu. Add EV3 configuration window."""
+
+    # Add EV3 configuration window
+    workbench=get_workbench()
+    workbench.set_default("ev3.ip", "192.168.0.1")
+    workbench.set_default("ev3.username", "robot")
+    workbench.set_default("ev3.password", "maker")
+    workbench.add_configuration_page("EV3", Ev3ConfigurationPage)
+
+
+    # icons
 
     image_path_remoterun = os.path.join(os.path.dirname(__file__), "res", "remoterun.gif")
     image_path_remotedebug = os.path.join(os.path.dirname(__file__), "res", "remotedebug.gif")
@@ -304,25 +392,7 @@ def load_plugin():
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
 
 
-
-
     # menu buttons
-
-    # "Run current script using the remote control EV3 API"  => by using API word we explicitly say the API is remotely controling the ev3 and not the whole program
-    # "Run current script using the remote control thonny.ev3 API"  -> no too technical
-    # "Run current script using remote control of the EV3"  => "using" better then "with" because we explicitly use that for the ev3, other stuff is not using that!
-    # "Run current script with remote control of the EV3"
-    # "Run current script with the EV3 remote controlled"
-    # "Run current script where we remote control the EV3"
-    # "Run current script where the EV3 is remotely controlled"
-    # "Run current script using the thonny EV3 API in remote control mode"
-    # "Run current script with remotely controlling the EV3"
-    # "Run current script with the thonny.ev3 API remotely controlling the EV3"
-
-    # "Run current script with remotely controlling the EV3"  -> unclear how remote control is done
-    # "Run current script using the remote control EV3 API"   -> clear that you need remote control api -> in thonny.ev3
-
-    # "Run current script using the EV3 API in remote control mode"  -> also makes clear api can switch modes
 
     get_workbench().add_command("ev3remoterun", "run", "Run current script using the EV3 API in remote control mode" ,
                                 get_button_handler_for_magiccmd_on_current_file("Ev3RemoteRun"),
@@ -339,7 +409,7 @@ def load_plugin():
                                 image_filename=image_path_remotedebug,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3patch", "tools", "Install additions to a newly installed ev3dev sdcard for usage with thonny-ev3dev plugin",
+    get_workbench().add_command("ev3patch", "tools", "Install thonny-ev3dev plugin additions to the ev3dev sdcard",
                                 patch_ev3,
                                 command_enabled,
                                 default_sequence=None,

@@ -229,9 +229,9 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
-    print("start rpycd.service")
+    print("enable and start rpycd.service")
 
-    stdin, stdout, stderr = ssh.exec_command('sudo systemctl start rpycd.service',get_pty=True)
+    stdin, stdout, stderr = ssh.exec_command('sudo systemctl enable --now rpycd.service',get_pty=True)
     stdin.write(args.password+'\n')
     stdin.flush()
     data = stdout.read().splitlines()
