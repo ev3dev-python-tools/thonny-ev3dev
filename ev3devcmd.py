@@ -209,12 +209,12 @@ def patch(args):
     stdin.flush()
 
     data = stdout.read().splitlines()
-    #for line in data:
-    #    print(line)
+    # for line in data:
+    #     print(line)
 
     data = stderr.read().splitlines()
-    #for line in data:
-    #    print(line,file=sys.stderr)
+    # for line in data:
+    #     print(line,file=sys.stderr)
 
 
 
@@ -229,9 +229,20 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
-    print("enable and start rpycd.service")
+    print("enable  rpycd.service")
 
-    stdin, stdout, stderr = ssh.exec_command('sudo systemctl enable --now rpycd.service',get_pty=True)
+    stdin, stdout, stderr = ssh.exec_command('sudo systemctl enable rpycd.service',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    # for line in data:
+    #     print(line)
+    data = stderr.read().splitlines()
+    # for line in data:
+    #     print(line,file=sys.stderr)
+
+    #rint("start rpycd.service")
+    stdin, stdout, stderr = ssh.exec_command('sudo systemctl start rpycd.service',get_pty=True)
     stdin.write(args.password+'\n')
     stdin.flush()
     data = stdout.read().splitlines()
@@ -248,7 +259,7 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
-    print("patch finished succesfull")
+    print("\n\nfinished")
 
     ftp.close()
     ssh.close()
