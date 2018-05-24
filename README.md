@@ -1,7 +1,7 @@
 This is a plug-in for Thonny which adds EV3 support. 
 For more info about Thonny: http://thonny.org
 
-To correctly use the thonny-ev3dev plugin you must not use 'import ev3dev as ev3' to import the ev3dev library, but instead you import it as:
+To correctly use the thonny-ev3dev plugin you must not use 'import ev3dev.ev3 as ev3' to import the ev3dev library, but instead you import it as:
 
     # get ev3dev library in current context
     import ev3devcontext
