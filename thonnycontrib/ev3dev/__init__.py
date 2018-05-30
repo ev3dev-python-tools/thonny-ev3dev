@@ -3,6 +3,12 @@ from tkinter.messagebox import showerror
 from thonny.ui_utils import SubprocessDialog
 from thonny import THONNY_USER_BASE
 
+from threading import Thread
+
+import rpyc
+
+
+
 from thonny.globals import register_runner, get_runner
 
 from thonny.misc_utils import running_on_mac_os, running_on_windows, running_on_linux
@@ -32,7 +38,7 @@ import textwrap
 
 import tokenize
 
-
+import ev3devcmd
 
 
 from thonny.common import serialize_message, ToplevelCommand, \
@@ -85,23 +91,130 @@ class MySubprocessDialog(SubprocessDialog):
 
 
 
-def get_button_handler_for_magiccmd_on_current_file(magiccmd):
-    def button_handler_for_magiccmd_on_current_file():
-        # generate a magic command to submit to shell (shell will execute it)
-        get_runner().execute_current(magiccmd)
 
-        # run python code in shell
-        #get_workbench().get_view("ShellView").submit_command("print('hello')\n")
 
-        # hack to get a newline after magic command is done
-        if get_runner().get_state() == "waiting_toplevel_command":
-            get_workbench().get_view("ShellView").submit_command("\n")
-
-    return  button_handler_for_magiccmd_on_current_file
+def print_error_in_backend(error_str):
+    error_source='import sys; print("{}",file=sys.stderr)'.format(error_str)
+    cmd=ToplevelCommand(command='execute_source', source=error_source)
+    get_runner().send_command(cmd)
 
 
 
-def currentfile_magiccmd_handler(cmd_line):
+
+
+def set_focus_on_shell_after_delay():
+    def focusback():
+        from time import sleep
+        sleep(0.1)
+        get_workbench().get_view("ShellView").focus_set()
+
+    t = Thread(target=focusback)
+    t.start()
+
+def _handle_cd_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "cd"
+
+    if len(args) == 0:
+        cmd=ToplevelCommand(command='execute_source', source='import os;from pathlib import Path;home = str(Path.home());os.chdir(home);print("changed to home directory: " + home)')
+        get_runner().send_command(cmd)
+    else:
+       get_runner().send_command(ToplevelCommand(command="cd", path=args[0]))
+
+def _handle_pwd_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "pwd"
+
+    if len(args) == 0:
+        cmd=ToplevelCommand(command='execute_source', source='import os;print(os.getcwd())')
+        get_runner().send_command(cmd)
+    else:
+        print_error_in_backend("Command 'pwd' doesn't take arguments")
+
+
+def _handle_help_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "help"
+
+
+    magic_cmds=get_workbench().get_view("ShellView").text._command_handlers.keys()
+    help_msg="magic commands:\\n" + "\\n".join(map(lambda cmd: "    %"+cmd,magic_cmds))
+    help_source="print('"+help_msg+"')"
+    cmd=ToplevelCommand(command='execute_source', source=help_source)
+    get_runner().send_command(cmd)
+
+
+def _handle_ls_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "ls"
+
+
+    if len(args) == 0:
+        ls_source='import os; print("\\n".join( sorted(map(lambda item: str(item.name) if (item.is_file()) else str(item.name)+"/" , filter(lambda item:  ( not item.name.startswith(".") ) and ( item.is_dir() or item.name.endswith(".py") or item.name.endswith(".log"))     , os.scandir())   )) ))'
+        cmd=ToplevelCommand(command='execute_source', source=ls_source)
+        get_runner().send_command(cmd)
+    else:
+        print_error_in_backend("Command 'ls' doesn't take arguments")
+
+
+
+def _handle_open_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "open"
+
+    if len(args) == 1:
+        try:
+            cwd=get_runner().get_cwd()
+            # open file, and to open that window tab viewable it must get focus
+            open_file(args[0],cwd)
+            # hack to make new prompt to appear
+            cmd=ToplevelCommand(command='execute_source', source='')
+            get_runner().send_command(cmd)
+            # directly setting focus on shell back doesn't work so we use a delay
+            set_focus_on_shell_after_delay()
+        except FileNotFoundError:
+            print_error_in_backend("failed to open")
+    else:
+        print_error_in_backend("Command 'open' takes one argument")
+
+def _handle_reload_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "reload"
+
+    if len(args) == 1:
+        try:
+            cwd=get_runner().get_cwd()
+            # open file, and to open that window tab viewable it must get focus
+            #  => using forced reloading if file already open => no dialog shown, even if there are local changes
+            open_file(args[0],cwd,True)
+            # hack to make new prompt to appear
+            cmd=ToplevelCommand(command='execute_source', source='')
+            get_runner().send_command(cmd)
+            # directly setting focus on shell back doesn't work so we use a delay
+            set_focus_on_shell_after_delay()
+        except FileNotFoundError:
+            print_error_in_backend("failed to open")
+    else:
+        print_error_in_backend("Command 'open' takes one argument")
+
+
+
+def _handle_reset_from_shell(cmd_line):
+    command, args = parse_shell_command(cmd_line)
+    assert command == "Reset"
+
+    if len(args) == 0:
+        get_runner().send_command(ToplevelCommand(command="Reset"))
+
+        # stop programmings running on ev3 and stop sound/motors via rpyc
+        stop_ev3_programms__and__rpyc_motors_sound()
+        #rpyc_stop_in_background()
+
+    else:
+        print_error_in_backend("Command 'Reset' doesn't take arguments")
+
+
+def _handle_rundebug_from_shell(cmd_line):
     """
     Handles all commands that take a filename and 0 or more extra arguments.
     Passes the command to backend.
@@ -138,40 +251,37 @@ def currentfile_magiccmd_handler(cmd_line):
 
         get_runner().send_command(cmd)
     else:
-        raise CommandSyntaxError("Command '%s' takes at least one argument", command)
+
+        print_error_in_backend("Command '{}' takes at least one argument".format(command))
 
 
 
 
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
-def command_enabled():
-    return  get_runner().get_state() == "waiting_toplevel_command"
+def get_credentials():
 
-def currentscript_and_command_enabled():
-    return (get_workbench().get_editor_notebook().get_current_editor() is not None
-            and get_runner().get_state() == "waiting_toplevel_command"
-            and get_workbench().get_editor_notebook().get_current_editor().get_filename().endswith(".py")
-           )
-
-
-
-
+    credentials = {
+        'address': get_workbench().get_option("ev3.ip"),
+        'username': get_workbench().get_option("ev3.username"),
+        'password': get_workbench().get_option("ev3.password")
+    }
+    return  AttrDict(credentials)
 
 def get_base_ev3dev_cmd():
 
     basecmd = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd']
 
-    ip=get_workbench().get_option("ev3.ip")
-    username=get_workbench().get_option("ev3.username")
-    password=get_workbench().get_option("ev3.password")
-
-    credentials = [ "-a", ip, "-u", username, "-p", password]
-
-    return basecmd + credentials
+    credentials =  get_credentials()
+    return basecmd + [ "-a", credentials.address, "-u", credentials.username, "-p", credentials.password]
 
 
 def upload(file=None):
     """Uploads given .py file to EV3."""
+
 
     if file == None:
         return
@@ -191,7 +301,7 @@ def upload_current_script():
     code = current_editor.get_text_widget().get("1.0", "end")
     try:
         filename= current_editor.get_filename()
-        if not filename.endswith(".py"):
+        if (not filename) or (not filename.endswith(".py")):
             return
 
         ast.parse(code)
@@ -202,7 +312,8 @@ def upload_current_script():
             else:
                return
 
-        #Return None, if script is not saved and user closed file saving window, otherwise return file name.
+        # automatically save file (without confirm dialog, nor dialog for asking filename )
+        # save_file does return None, if script is not saved and user closed file saving window, otherwise return file name.
         py_file = current_editor.save_file(False)
         if py_file is None:
             return
@@ -211,7 +322,6 @@ def upload_current_script():
     except Exception:
         error_msg = traceback.format_exc(0)+'\n'
         showerror("Error", error_msg)
-
 
 
 
@@ -274,14 +384,36 @@ def download_log(srcpath=None):
     if dlg.returncode == 0:
         from pathlib import Path
         home = str(Path.home())
-        destpath=os.path.join(home,srcpath)
-        get_workbench().get_editor_notebook().show_file(destpath)
+        open_file(srcpath,home,True)
 
-        get_workbench().get_current_editor()._load_file(destpath)
-        get_workbench().get_current_editor().get_text_widget().edit_modified(False)
 
-        #get_workbench().get_editor_notebook().update_editor_title(get_workbench().get_current_editor())
-        #get_workbench().get_editor_notebook().update_appearance()
+
+def open_file(srcpath,basedir=None,force_reload=False):
+    if basedir:
+        srcpath=os.path.join(basedir,srcpath)
+
+    workbench=get_workbench()
+
+    editor_notebook=workbench.get_editor_notebook()
+
+    editor = editor_notebook.get_editor(srcpath, False)
+
+    if editor:
+        # already open
+        if force_reload:
+            # force reloading source in editor  => overwrites current changes!!
+            editor._load_file(srcpath)
+            editor.get_text_widget().edit_modified(False)
+    else:
+        # open new file
+        editor=editor_notebook.get_editor(srcpath, True)
+
+    # select the tab in notebook
+    editor_notebook.select(editor)
+    # and focus this tab
+    editor.focus_set()
+
+
 
 
 
@@ -322,6 +454,12 @@ def patch_ev3():
     dlg.wait_window()
 
 
+
+def cmd_interrupt_reset():
+    if get_runner().get_state() == "waiting_toplevel_command":
+        get_workbench().get_view("ShellView").submit_command("%Reset\n")
+    else:
+        get_runner().interrupt_backend()
 
 class Ev3ConfigurationPage(ConfigurationPage):
     """
@@ -365,6 +503,73 @@ class Ev3ConfigurationPage(ConfigurationPage):
 
 
 
+def get_button_handler_for_magiccmd_on_current_file(magiccmd):
+    def button_handler_for_magiccmd_on_current_file():
+        # generate a magic command to submit to shell (shell will execute it)
+        get_runner().execute_current(magiccmd)
+
+        # run python code in shell
+        #get_workbench().get_view("ShellView").submit_command("print('hello')\n")
+
+        # hack to get a newline after magic command is done
+        if get_runner().get_state() == "waiting_toplevel_command":
+            get_workbench().get_view("ShellView").submit_command("\n")
+
+    return  button_handler_for_magiccmd_on_current_file
+
+def command_enabled():
+    return  get_runner().get_state() == "waiting_toplevel_command"
+
+def currentscript_and_command_enabled():
+    return (get_workbench().get_editor_notebook().get_current_editor() is not None
+            and get_runner().get_state() == "waiting_toplevel_command"
+            and get_workbench().get_editor_notebook().get_current_editor().get_filename()
+            and get_workbench().get_editor_notebook().get_current_editor().get_filename().endswith(".py")
+            )
+
+def enabled():
+    return True
+
+
+
+# def rpyc_stop_in_background():
+#     def rpyc_stop_in_background__target():
+#         ev3devcmd.sighup(get_credentials())
+#
+#     t = Thread(target=rpyc_stop_in_background__target)
+#     t.start()
+
+
+
+def stop_ev3_programms__and__rpyc_motors_sound():
+
+    #soft_reset=False
+    #t = Thread(target=remote_rpyc_stop_and_reset,args=(soft_reset,))
+
+    credentials=get_credentials()
+    t = Thread(target=ev3devcmd.stop_ev3_programms__and__rpyc_motors_sound,args=[credentials])
+    t.start()
+
+
+
+
+def soft_reset_ev3():
+
+
+    list = get_base_ev3dev_cmd() + ['softreset']
+
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Soft reset EV3", autoclose=False)
+    dlg.wait_window()
+
+    # #soft_reset=True
+    # #t = Thread(target=remote_rpyc_stop_and_reset,args=(soft_reset,))
+    # t = Thread(target=soft_reset_ev3())
+    # t.start()
+
 
 
 
@@ -392,6 +597,9 @@ def load_plugin():
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
 
 
+
+
+
     # menu buttons
 
     get_workbench().add_command("ev3remoterun", "run", "Run current script using the EV3 API in remote control mode" ,
@@ -416,6 +624,16 @@ def load_plugin():
                                 group=270,
                                 #image_filename=image_path_upload,
                                 include_in_toolbar=False)
+
+    get_workbench().add_command("ev3softreset", "tools", "Soft reset of the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)",
+                                soft_reset_ev3,
+                                command_enabled,
+                                default_sequence=None,
+                                group=275,
+                                #image_filename=image_path_clean,
+                                include_in_toolbar=False)
+
+
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
                                 upload_current_script,
@@ -449,11 +667,36 @@ def load_plugin():
 
 
 
+    orig_interrupt_backend=get_runner().interrupt_backend
+    def wrapped_interrupt_backend():
+
+        # kill program on pc
+        orig_interrupt_backend()
+
+        # stop programmings running on ev3 and stop sound/motors via rpyc
+        stop_ev3_programms__and__rpyc_motors_sound()
+
+
+    get_runner().interrupt_backend = wrapped_interrupt_backend
+
+
+
     # magic commands
     shell = get_workbench().get_view("ShellView")
 
-    shell.add_command("Ev3RemoteRun", currentfile_magiccmd_handler)
-    shell.add_command("Ev3RemoteDebug", currentfile_magiccmd_handler)
+    shell.add_command("Ev3RemoteRun", _handle_rundebug_from_shell)
+    shell.add_command("Ev3RemoteDebug", _handle_rundebug_from_shell)
+
+
+    shell.add_command("Reset", _handle_reset_from_shell)
+
+    shell.add_command("pwd", _handle_pwd_from_shell)
+    shell.add_command("cd", _handle_cd_from_shell)
+    shell.add_command("ls", _handle_ls_from_shell)
+    shell.add_command("help", _handle_help_from_shell)
+    shell.add_command("open", _handle_open_from_shell)
+    shell.add_command("reload", _handle_reload_from_shell)
+
 
 
 

@@ -1,10 +1,11 @@
 [Unit]
-Description=Classic rpyc server 
-
+Description=Classic rpyc server in threaded mode with hup reset support
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/rpyc_classic.py
+Restart=on-failure
+# by default restarts after 100ms
 
 [Install]
 WantedBy=multi-user.target
