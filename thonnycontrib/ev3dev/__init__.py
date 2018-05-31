@@ -5,9 +5,6 @@ from thonny import THONNY_USER_BASE
 
 from threading import Thread
 
-import rpyc
-
-
 
 from thonny.globals import register_runner, get_runner
 
@@ -47,43 +44,152 @@ from thonny.common import serialize_message, ToplevelCommand, \
     UserError
 
 
-class MySubprocessDialog(SubprocessDialog):
+
+
+import collections
+import threading
+from thonny.ui_utils import get_main_background, center_window
+
+
+# improved  SubprocessDialog from thonny/ui_utils.py
+# 1. fix printing error code in _start_listening
+# 2. removed confirmation messagebox for canceling in _close
+class MySubprocessDialog(tk.Toplevel):
     """Shows incrementally the output of given subprocess.
     Allows cancelling"""
 
-    def _close(self, event=None):
-        if self._proc.poll() is None:
-                # try gently first
-                try:
-                    if running_on_windows():
-                        os.kill(self._proc.pid, signal.CTRL_BREAK_EVENT)  # @UndefinedVariable
-                    else:
-                        os.kill(self._proc.pid, signal.SIGINT)
+    def __init__(self, master, proc, title, long_description=None, autoclose=True):
+        self._proc = proc
+        self.stdout = ""
+        self.stderr = ""
+        self._stdout_thread = None
+        self._stderr_thread = None
+        self.returncode = None
+        self.cancelled = False
+        self._autoclose = autoclose
+        self._event_queue = collections.deque()
 
-                    self._proc.wait(2)
-                except subprocess.TimeoutExpired:
-                    if self._proc.poll() is None:
-                        # now let's be more concrete
-                        self._proc.kill()
+        tk.Toplevel.__init__(self, master)
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+        main_frame = ttk.Frame(self) # To get styled background
+        main_frame.grid(sticky="nsew")
+
+        text_font=tk.font.nametofont("TkFixedFont").copy()
+        #text_font["size"] = int(text_font["size"] * 0.9)
+        text_font["family"] = "Courier" if running_on_mac_os() else "Courier New"
+        text_frame = tktextext.TextFrame(main_frame, read_only=True, horizontal_scrollbar=False,
+                                         background=get_main_background(),
+                                         font=text_font,
+                                         wrap="word")
+        text_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=15, pady=15)
+        self.text = text_frame.text
+        self.text["width"] = 60
+        self.text["height"] = 7
+        if long_description is not None:
+            self.text.direct_insert("1.0", long_description + "\n\n")
+
+        self.button = ttk.Button(main_frame, text="Cancel", command=self._close)
+        self.button.grid(row=1, column=0, pady=(0,15))
+
+        main_frame.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
 
 
-                self.cancelled = True
-                # Wait for threads to finish
-                self._stdout_thread.join(2)
-                if self._stderr_thread is not None:
-                    self._stderr_thread.join(2)
+        self.title(title)
+        if misc_utils.running_on_mac_os():
+            self.configure(background="systemSheetBackground")
+        #self.resizable(height=tk.FALSE, width=tk.FALSE)
+        self.transient(master)
+        self.grab_set() # to make it active and modal
+        self.text.focus_set()
 
-                # fetch output about cancelling
-                while len(self._event_queue) > 0:
-                    stream_name, data = self._event_queue.popleft()
-                    self.text.direct_insert("end", data, tags=(stream_name, ))
-                self.text.direct_insert("end", "\n\nPROCESS CANCELLED")
+
+        self.bind('<Escape>', self._close_if_done, True) # escape-close only if process has completed
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        center_window(self, master)
+
+        self._start_listening()
+
+    def _start_listening(self):
+
+        def listen_stream(stream_name):
+            stream = getattr(self._proc, stream_name)
+            while True:
+                data = stream.readline()
+                self._event_queue.append((stream_name, data))
+                setattr(self, stream_name, getattr(self, stream_name) + data)
+                if data == '':
+                    break
+
+            self.returncode = self._proc.wait()
+
+        self._stdout_thread = threading.Thread(target=listen_stream, args=["stdout"])
+        self._stdout_thread.start()
+        if self._proc.stderr is not None:
+            self._stderr_thread = threading.Thread(target=listen_stream, args=["stderr"])
+            self._stderr_thread.start()
+
+        def poll_output_events():
+            while len(self._event_queue) > 0:
+                stream_name, data = self._event_queue.popleft()
+                self.text.direct_insert("end", data, tags=(stream_name, ))
                 self.text.see("end")
 
-                self.destroy()
+            self.returncode = self._proc.poll()
+            if self.returncode == None:
+                self.after(200, poll_output_events)
+            else:
+                self.button["text"] = "OK"
+                self.button.focus_set()
+                if self.returncode != 0:
+                    self.text.direct_insert("end", "\n\nReturn code: " + str(self.returncode)  , ("stderr", ))
+                elif self._autoclose:
+                    self._close()
+
+        poll_output_events()
+
+
+    def _close_if_done(self, event):
+        if self._proc.poll() is not None:
+            self._close(event)
+
+    def _close(self, event=None):
+        if self._proc.poll() is None:
+            # try gently first
+            try:
+                if running_on_windows():
+                    os.kill(self._proc.pid, signal.CTRL_BREAK_EVENT)  # @UndefinedVariable
+                else:
+                    os.kill(self._proc.pid, signal.SIGINT)
+
+                self._proc.wait(2)
+            except subprocess.TimeoutExpired:
+                if self._proc.poll() is None:
+                    # now let's be more concrete
+                    self._proc.kill()
+
+
+            self.cancelled = True
+            # Wait for threads to finish
+            self._stdout_thread.join(2)
+            if self._stderr_thread is not None:
+                self._stderr_thread.join(2)
+
+            # fetch output about cancelling
+            while len(self._event_queue) > 0:
+                stream_name, data = self._event_queue.popleft()
+                self.text.direct_insert("end", data, tags=(stream_name, ))
+            self.text.direct_insert("end", "\n\nPROCESS CANCELLED")
+            self.text.see("end")
+
+            self.destroy()
 
         else:
             self.destroy()
+
+
 
 
 
@@ -418,7 +524,8 @@ def open_file(srcpath,basedir=None,force_reload=False):
 
 
 def download_log_of_current_script():
-    """upload current python script to EV3"""
+    """download log of current python script from EV3"""
+
     try:
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
         src_file = get_workbench().get_current_editor().get_filename(False)
@@ -507,9 +614,6 @@ def get_button_handler_for_magiccmd_on_current_file(magiccmd):
     def button_handler_for_magiccmd_on_current_file():
         # generate a magic command to submit to shell (shell will execute it)
         get_runner().execute_current(magiccmd)
-
-        # run python code in shell
-        #get_workbench().get_view("ShellView").submit_command("print('hello')\n")
 
         # hack to get a newline after magic command is done
         if get_runner().get_state() == "waiting_toplevel_command":
@@ -617,7 +721,7 @@ def load_plugin():
                                 image_filename=image_path_remotedebug,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3patch", "tools", "Install thonny-ev3dev plugin additions to the ev3dev sdcard",
+    get_workbench().add_command("ev3patch", "tools", "Install ev3dev additions to the ev3dev sdcard on the EV3",
                                 patch_ev3,
                                 command_enabled,
                                 default_sequence=None,
@@ -625,7 +729,7 @@ def load_plugin():
                                 #image_filename=image_path_upload,
                                 include_in_toolbar=False)
 
-    get_workbench().add_command("ev3softreset", "tools", "Soft reset of the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)",
+    get_workbench().add_command("ev3softreset", "tools", "Soft reset the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)",
                                 soft_reset_ev3,
                                 command_enabled,
                                 default_sequence=None,

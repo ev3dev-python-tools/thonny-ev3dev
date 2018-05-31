@@ -5,7 +5,7 @@ import sys
 import os.path
 import argparse
 
-
+from time import sleep
 
 def checkfile(PATH):
     if not ( os.path.isfile(PATH) and os.access(PATH, os.R_OK) ):
@@ -13,7 +13,52 @@ def checkfile(PATH):
         sys.exit(1)
 
 
+# source: https://stackoverflow.com/questions/2953462/pinging-servers-in-python
+from platform   import system as system_name  # Returns the system/OS name
+from subprocess import call   as system_call  # Execute a shell command
+
+def ping(host):
+    """
+    Returns True if host (str) responds to a ping request.
+    Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
+    """
+
+    # only 1 ping with timeout of 1 second is enough to determine if host is pingable
+    # note: local ethernet or local bluetooth connection should respond within 1 second
+
+    # Ping command count option as function of OS
+    count_param = '-n 1' if system_name().lower()=='windows' else '-c 1'
+
+    # Ping command timeout option as function of OS
+    timeout_param = '-w 1' if system_name().lower()=='windows' else '-t 1'
+
+    # Building the command. Ex: "ping -c 1 google.com"
+    command = ['ping', count_param, timeout_param, host]
+
+    # Pinging
+    devnull = open(os.devnull, 'w')
+    return system_call(command,stdout=devnull, stderr=devnull) == 0
+
+
+def check_host_online(address):
+
+    # # Ping command count option as function of OS
+    # param = '-n 1' if system_name().lower()=='windows' else '-c 1'
+    #
+    # ping_success= True if os.system("ping -c 1 -t 1 " + address + " >/dev/null") is 0 else False
+
+    if ping(address):
+        print("EV3 succesfully pinged")
+    else:
+        print("Problem: EV3 not pingable",file=sys.stderr)
+        sys.exit(1)
+
+
+
 def sshconnect(args):
+
+    check_host_online(args.address)
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(args.address, username=args.username, password=args.password,look_for_keys=False)
@@ -28,6 +73,9 @@ def file_exist_on_ev3(ftp,filepath):
         file_exist=False
     return  file_exist
 
+
+
+
 def upload(args):
 
     srcpath=args.file
@@ -36,9 +84,7 @@ def upload(args):
     # for safety:  can only upload file into  homedir
     destpath='/home/'+ args.username + '/' + os.path.basename(srcpath)
 
-    #print("start uploading:  srcpath=" + srcpath)
-    #print("start uploading: destpath=" + destpath)
-    #sys.stdout.flush()
+    print("start uploading file to EV3 as: " + destpath)
 
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
@@ -55,12 +101,17 @@ def upload(args):
         ssh.close()
         sys.exit(1)
 
-
+    # quickly show in modal dialog in thonny before it exits
+    print("\n\nupload succesfull")
+    sleep(1)
 
 def start(args):
 
     # allow to execute file from everywhere on EV3, however by default to path relative to homedir
     srcpath=args.file
+    # `-> not a path, only filename, because we assume file in /home/robot
+    #     note: we do not check file on pc, because should be on ev3!!
+
 
     # srcpath not given as absolute path, then take it relative to homedir
     if srcpath[0] != "/" and srcpath[0] != "\\":
@@ -87,11 +138,15 @@ def start(args):
 
     print("Succesfully started  the file '{0}' on the EV3.".format(srcpath))
     print("This command only starts the execution on the EV3, but doesn't wait for the execution to be finished." )
+
     ftp.close()
     ssh.close()
 
-def download(args):
+    # quickly show in modal dialog in thonny before it exits
+    print("\n\nstart succesfull")
+    sleep(4)  # longer because start on ev3 anyway slow
 
+def download(args):
 
     srcpath=args.file
     destpath=os.path.basename(srcpath)
@@ -118,20 +173,18 @@ def download(args):
 
     print("ftp.get({0}, {1}".format(srcpath, destpath))
 
-
-
-
     try:
         ftp.get(srcpath, destpath)
     except IOError:
-        print("Failed to download the file on the EV3 at '{0}  to file '{1}'.".format(srcpath),file=sys.stderr)
+        print("Failed to download the file from the EV3 at '{0}  to file '{1}'.".format(srcpath),file=sys.stderr)
         ftp.close()
         ssh.close()
         sys.exit(1)
 
     ftp.close()
     ssh.close()
-    print("succesfully downloaded the file on EV3 at '{0}' to file '{1}'.".format(srcpath,destpath) )
+    print("succesfully downloaded the file from the EV3 at '{0}' to file '{1}'.".format(srcpath,destpath) )
+
 
 def listfiles(args):
 
@@ -175,22 +228,6 @@ def delete(args):
 
 def patch(args):
 
-    # patch
-    #  - ev3devcontext.py  :  thonny/shared/ev3devcontext.py  => ev3:/usr/lib/python3/dist-packages/
-    #  - rpyc systemd
-    #          sudo apt-get install rpyc       => problem need network on ev3!!
-
-    # import urllib.request
-    # import tempfile
-    #
-    # # Download the file from `url` and save it locally
-    # url='https://github.com/tomerfiliba/rpyc/archive/3.4.4.zip'
-    # tempdir=tempfile.gettempdir()
-    # distfile=os.path.join(tempdir,'rpyc-3.4.4.zip')
-    # distfile_ev3 ='/tmp/rpyc-3.4.4.zip'
-    # urllib.request.urlretrieve(url,distfile)
-
-
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -217,18 +254,6 @@ def patch(args):
     data = stderr.read().splitlines()
     # for line in data:
     #     print(line,file=sys.stderr)
-
-
-    print("add /usr/bin/rpyc_classic__threaded_hup_reset.py")
-
-    ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','rpyc_classic__threaded_hup_reset.py'), '/tmp/rpyc_classic__threaded_hup_reset.py')
-    ftp.chmod('/tmp/rpyc_classic__threaded_hup_reset.py', 0o775)
-
-    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/rpyc_classic__threaded_hup_reset.py /usr/bin/rpyc_classic__threaded_hup_reset.py',get_pty=True)
-    stdin.write(args.password+'\n')
-    stdin.flush()
-    data = stdout.read().splitlines()
-    data = stderr.read().splitlines()
 
 
     print("add /etc/systemd/system/rpycd.service")
@@ -267,7 +292,6 @@ def patch(args):
 
     print("add /usr/lib/python3/dist-packages/ev3devcontext.py")
 
-    #ftp.put(os.path.join(dir_path,'thonny','shared','ev3devcontext.py'), '/tmp/ev3devcontext.py')
     ftp.put(os.path.join(dir_path,'ev3devcontext.py'), '/tmp/ev3devcontext.py')
 
     stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
@@ -278,65 +302,72 @@ def patch(args):
 
     print("\n\nfinished")
 
+
     ftp.close()
     ssh.close()
 
 
 
 def _remote_rpyc_stop_and_reset(soft_reset,credentials):
-    conn=None
+
+    check_host_online(credentials.address)
+
     try:
         ip=credentials.address
         conn = rpyc.classic.connect(ip) # host name or IP address of the EV3
     except:
-        pass
+        print("failed connection with EV3")
+        return
 
-    if conn:
-
-        # kill motors
-        ev3= conn.modules['ev3dev.ev3']
-        for m in ev3.list_motors():
-            #print(m)
-            m.reset()
-
-        os= conn.modules['os']
-        sudoPassword='maker'
+    os= conn.modules['os']
+    sudoPassword='maker'
 
 
+    print("kill programs running on EV3")
+    # kill programs running on ev3
+    command="kill -9 -`pgrep -f 'python3 /home/robot'`"
+    # no sudo needed, program runs as user robot
+    os.system(command)
 
-        # kill programs running on ev3
-        command="kill -9 -`pgrep -f 'python3 /home/robot'`"
-        # no sudo needed, program runs as user robot
-        os.system(command)
+    print("stop motors on EV3")
+    # kill motors
+    ev3= conn.modules['ev3dev.ev3']
+    for m in ev3.list_motors():
+        m.reset()
+
+    print("stop sound on EV3")
+    # kill sound via beep
+    command='pkill -f /usr/bin/aplay'
+    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+    # kill sound aplay
+    command='pkill -f /usr/bin/beep'
+    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+
+    print("set leds back to default of green")
+    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
+    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
 
 
-        # kill sound via beep
-        command='pkill -f /usr/bin/aplay'
+    if soft_reset:
+
+        print("restart brickman on EV3")
+        command='systemctl restart brickman'
         os.system('echo %s|sudo -S %s' % (sudoPassword, command))
 
-
-        # kill sound aplay
-        command='pkill -f /usr/bin/beep'
-        os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-
-
-        if soft_reset:
-
-
-            command='systemctl restart brickman'
+        print("restart rpycd server on EV3")
+        # restart rpycd server
+        # note: throws error because we use rpyc protocol to restart rpycd daemone
+        #      => gives:
+        #            raise EOFError("connection closed by peer")
+        #         when loosing rpyc connection
+        try:
+            command='systemctl restart rpycd'
             os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+        except EOFError:
+            pass
+        #rpyc_stop_in_background()
 
-            # restart rpycd server
-            # note: throws error because we use rpyc protocol to restart rpycd daemone
-            #      => gives:
-            #            raise EOFError("connection closed by peer")
-            #         when loosing rpyc connection
-            try:
-                command='systemctl restart rpycd'
-                os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-            except EOFError:
-                pass
-            #rpyc_stop_in_background()
+    print("finished")
 
 
 
@@ -348,25 +379,6 @@ def stop_ev3_programms__and__rpyc_motors_sound(args):
 def soft_reset_ev3(args):
     _remote_rpyc_stop_and_reset(True,args)
 
-
-# def sighup(args):
-#     """send SIGHUP signal to the RPyC server on the ev3 to close all connected RPyC clients"""
-#
-#     ssh=sshconnect(args)
-#
-#     try:
-#         stdin, stdout, stderr =ssh.exec_command("sudo pkill -1 -f 'rpyc_classic__threaded_hup_reset.py'",get_pty=True)
-#         stdin.write(args.password+'\n')
-#         stdin.flush()
-#         data = stdout.read().splitlines()
-#         data = stderr.read().splitlines()
-#
-#     except Exception as inst:
-#         print("Failed to send SIGHUP signal to the RPyC server on the EV3",file=sys.stderr)
-#         ssh.close()
-#         sys.exit(1)
-#
-#     ssh.close()
 
 
 def cleanup(args):
@@ -453,15 +465,11 @@ def main(argv=None):
     parser_clean.set_defaults(func=cleanup)
 
     # create the parser for the "clean" command
-    parser_patch = subparsers.add_parser('install_additions', help='install additions on the EV3 for thonny-ev3dev when just having installed a newly installed EV3dev image')
+    parser_patch = subparsers.add_parser('install_additions', help='install ev3dev additions on the EV3 when just having installed a newly installed ev3dev image')
     parser_patch.set_defaults(func=patch)
 
-    # # create the parser for the "nohub" command
-    # parser_sighup = subparsers.add_parser('sighup', help="send SIGHUP signal to the RPyC server on the EV3 to close all connected RPyC clients")
-    # parser_sighup.set_defaults(func=sighup)
-
     # create the parser for the "softreset" command
-    parser_sighup = subparsers.add_parser('softreset', help="soft reset of the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)")
+    parser_sighup = subparsers.add_parser('softreset', help="soft reset the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)")
     parser_sighup.set_defaults(func=soft_reset_ev3)
 
     # create the parser for the "softreset" command
@@ -470,7 +478,6 @@ def main(argv=None):
 
     # parse args,
     args=parser.parse_args(argv[1:])
-
 
 
     # and call the function found by parsing, and pass it the args
