@@ -1,0 +1,4 @@
+.idea
+**/dist/
+thonny/
+**/__pycache__/
