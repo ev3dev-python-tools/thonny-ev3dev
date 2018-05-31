@@ -5,6 +5,9 @@ import sys
 import os.path
 import argparse
 
+import ev3devcontext
+
+
 
 from time import sleep
 
@@ -236,7 +239,7 @@ def patch(args):
 
     print("add /usr/bin/brickmanrun")
 
-    ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','brickmanrun'), '/tmp/brickmanrun')
+    ftp.put(os.path.join(dir_path,'ev3devcmd_res','brickmanrun'), '/tmp/brickmanrun')
     ftp.chmod('/tmp/brickmanrun', 0o775)
 
 
@@ -259,7 +262,7 @@ def patch(args):
 
     print("add rpycd.service")
 
-    ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','rpycd.service'), '/tmp/rpycd.service')
+    ftp.put(os.path.join(dir_path,'ev3devcmd_res','rpycd.service'), '/tmp/rpycd.service')
 
 
     stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/rpycd.service /etc/systemd/system/rpycd.service',get_pty=True)
@@ -292,7 +295,7 @@ def patch(args):
 
 
     print("install ev3devcontext package on EV3")
-    import ev3devcontext
+
     ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
 
     stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)

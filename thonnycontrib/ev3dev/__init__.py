@@ -38,6 +38,8 @@ import tokenize
 import ev3devcmd
 
 
+
+
 from thonny.common import serialize_message, ToplevelCommand, \
     InlineCommand, parse_shell_command, \
     CommandSyntaxError, parse_message, DebuggerCommand, InputSubmission, \
@@ -555,8 +557,12 @@ def patch_ev3():
 
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONPATH"] = ":".join(sys.path)
+
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
+
+
     dlg = MySubprocessDialog(get_workbench(), proc, "Install thonny-ev3dev plugin additions to the ev3dev sdcard", autoclose=False)
     dlg.wait_window()
 
