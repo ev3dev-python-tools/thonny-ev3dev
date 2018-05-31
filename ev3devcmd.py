@@ -5,6 +5,7 @@ import sys
 import os.path
 import argparse
 
+
 from time import sleep
 
 def checkfile(PATH):
@@ -256,7 +257,7 @@ def patch(args):
     #     print(line,file=sys.stderr)
 
 
-    print("add /etc/systemd/system/rpycd.service")
+    print("add rpycd.service")
 
     ftp.put(os.path.join(dir_path,'thonnycontrib','ev3dev','res','rpycd.service'), '/tmp/rpycd.service')
 
@@ -290,9 +291,9 @@ def patch(args):
 
 
 
-    print("add /usr/lib/python3/dist-packages/ev3devcontext.py")
-
-    ftp.put(os.path.join(dir_path,'ev3devcontext.py'), '/tmp/ev3devcontext.py')
+    print("install ev3devcontext package on EV3")
+    import ev3devcontext
+    ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
 
     stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
     stdin.write(args.password+'\n')
