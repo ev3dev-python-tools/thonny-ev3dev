@@ -10,6 +10,8 @@ import ev3devcontext
 
 
 import functools
+
+# automatically flush on each print
 print = functools.partial(print, flush=True)
 
 from time import sleep
@@ -20,50 +22,7 @@ def checkfile(PATH):
         sys.exit(1)
 
 
-# source: https://stackoverflow.com/questions/2953462/pinging-servers-in-python
-from platform   import system as system_name  # Returns the system/OS name
-from subprocess import call   as system_call  # Execute a shell command
-
-def ping(host):
-    """
-    Returns True if host (str) responds to a ping request.
-    Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
-    """
-
-    # TODO: fix hiding console window on windows, solution : http://code.activestate.com/recipes/578300-python-subprocess-hide-console-on-windows/
-
-    # only 1 ping with timeout of 1 second is enough to determine if host is pingable
-    # note: local ethernet or local bluetooth connection should respond within 1 second
-
-    # Ping command count option as function of OS
-    count_params = ['-n', '1'] if system_name().lower()=='windows' else ['-c', '1']
-
-    # Ping command timeout option as function of OS
-    timeout_params = ['-w', '1'] if system_name().lower()=='windows' else ['-t', '1']
-
-    # Building the command. Ex: "ping -c 1 google.com"
-    command = ['ping'] + count_params + timeout_params + [host]
-
-    # Pinging
-    devnull = open(os.devnull, 'w')
-    return system_call(command,stdout=devnull, stderr=devnull) == 0
-
-
-def check_host_online(address):
-
-    if ping(address):
-        print("EV3 succesfully pinged")
-    else:
-        print("Problem: EV3 not pingable",file=sys.stderr)
-        sys.exit(1)
-
-
-
 def sshconnect(args):
-
-    #check_host_online(args.address)
-
-
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -327,8 +286,6 @@ def patch(args):
 
 
 def _remote_rpyc_stop_and_reset(soft_reset,credentials):
-
-    #check_host_online(credentials.address)
 
     try:
         ip=credentials.address
