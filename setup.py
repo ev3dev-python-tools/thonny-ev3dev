@@ -11,7 +11,7 @@ for line in open(os.path.join(setupdir, 'requirements.txt'), encoding="UTF-8"):
 
 setup(
       name="thonny-ev3dev",
-      version="0.32",
+      version="0.33",
       description="A plug-in which adds EV3 support for Thonny",
       long_description="""
 The thonny-ev3dev package is a plug-in which adds EV3 support for Thonny.

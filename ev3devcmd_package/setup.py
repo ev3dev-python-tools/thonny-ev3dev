@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcmd",
-      version="0.32",
+      version="0.33",
       description="ev3devcmd library and cmdline utility",
       url="https://www.github.com/harcokuppens/thonny-ev3dev",
       author="Harco Kuppens",

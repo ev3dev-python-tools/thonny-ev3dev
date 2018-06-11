@@ -1,17 +1,21 @@
 import sys
 import os
+import platform
 
 def getEV3API():
 
-    if os.uname()[1] == 'ev3dev':
+    if platform.node() == 'ev3dev':
         import ev3dev.ev3 as ev3
     else:
-        #print(os.environ.get('EV3MODE'))
         if os.environ.get('EV3MODE') == "remote":
             myip=os.environ.get('EV3IP')
             import rpyc
-            getEV3API.conn = rpyc.classic.connect(myip) # host name or IP address of the EV3
-            # note: attach connection to function importEv3 so that doesn't get garbage collected
+            import socket
+            try:
+                getEV3API.conn = rpyc.classic.connect(myip) # host name or IP address of the EV3
+                # note: attach connection to function importEv3 so that doesn't get garbage collected
+            except socket.timeout as ex:
+                raise Exception("remote control connection timed out") from None
             ev3 = getEV3API.conn.modules['ev3dev.ev3']      # import ev3dev.ev3 remotely
             return ev3
         else:
@@ -20,8 +24,7 @@ def getEV3API():
 
 
 
-# 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-
+# logging levels: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
 def getLogger(timing=False):
     import logging
     import datetime as dt

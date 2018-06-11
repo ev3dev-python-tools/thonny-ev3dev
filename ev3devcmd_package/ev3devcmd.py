@@ -1,4 +1,5 @@
 
+import socket
 import paramiko
 import rpyc
 import sys
@@ -8,6 +9,8 @@ import argparse
 import ev3devcontext
 
 
+import functools
+print = functools.partial(print, flush=True)
 
 from time import sleep
 
@@ -27,17 +30,19 @@ def ping(host):
     Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
     """
 
+    # TODO: fix hiding console window on windows, solution : http://code.activestate.com/recipes/578300-python-subprocess-hide-console-on-windows/
+
     # only 1 ping with timeout of 1 second is enough to determine if host is pingable
     # note: local ethernet or local bluetooth connection should respond within 1 second
 
     # Ping command count option as function of OS
-    count_param = '-n 1' if system_name().lower()=='windows' else '-c 1'
+    count_params = ['-n', '1'] if system_name().lower()=='windows' else ['-c', '1']
 
     # Ping command timeout option as function of OS
-    timeout_param = '-w 1' if system_name().lower()=='windows' else '-t 1'
+    timeout_params = ['-w', '1'] if system_name().lower()=='windows' else ['-t', '1']
 
     # Building the command. Ex: "ping -c 1 google.com"
-    command = ['ping', count_param, timeout_param, host]
+    command = ['ping'] + count_params + timeout_params + [host]
 
     # Pinging
     devnull = open(os.devnull, 'w')
@@ -45,11 +50,6 @@ def ping(host):
 
 
 def check_host_online(address):
-
-    # # Ping command count option as function of OS
-    # param = '-n 1' if system_name().lower()=='windows' else '-c 1'
-    #
-    # ping_success= True if os.system("ping -c 1 -t 1 " + address + " >/dev/null") is 0 else False
 
     if ping(address):
         print("EV3 succesfully pinged")
@@ -61,12 +61,22 @@ def check_host_online(address):
 
 def sshconnect(args):
 
-    check_host_online(args.address)
+    #check_host_online(args.address)
+
+
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(args.address, username=args.username, password=args.password,look_for_keys=False)
 
+    try:
+        # like for rpyc.classic.connect we use a 3 seconds timeout for ssh.connect
+        ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
+    except socket.timeout as e:
+        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Or fix EV3 address in \"Tools > Options\" menu.")
+        sys.exit(1)
+    except paramiko.ssh_exception.AuthenticationException as e:
+        print("\nProblem: failed connecting with EV3: authentication failed.\n         Fix credentials in \"Tools > Options\" menu.")
+        sys.exit(1)
     return ssh
 
 def file_exist_on_ev3(ftp,filepath):
@@ -88,7 +98,8 @@ def upload(args):
     # for safety:  can only upload file into  homedir
     destpath='/home/'+ args.username + '/' + os.path.basename(srcpath)
 
-    print("start uploading file to EV3 as: " + destpath)
+
+    print("uploading file to EV3 as: " + destpath)
 
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
@@ -111,18 +122,14 @@ def upload(args):
 
 def start(args):
 
-    # allow to execute file from everywhere on EV3, however by default to path relative to homedir
-    srcpath=args.file
-    # `-> not a path, only filename, because we assume file in /home/robot
-    #     note: we do not check file on pc, because should be on ev3!!
+    # for safety:  we can only upload file into  homedir
+    # so programs we start also only in homedir
+
+    srcpath='/home/'+ args.username + '/' + os.path.basename(args.file)
 
 
-    # srcpath not given as absolute path, then take it relative to homedir
-    if srcpath[0] != "/" and srcpath[0] != "\\":
-        srcpath='/home/'+ args.username + '/' + srcpath
-        # remove any . or ..
-        srcpath=os.path.abspath(srcpath)
 
+    print("Start the execution of the file '{0}' on the EV3'.".format(srcpath))
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -152,9 +159,13 @@ def start(args):
 
 def download(args):
 
-    srcpath=args.file
-    destpath=os.path.basename(srcpath)
+    # safety: save file in homedir
+    destpath=os.path.basename(args.file)
 
+    # allow any source path on ev3
+    srcpath=args.file
+
+    # relative paths relative homedir on ev3
     if srcpath[0] != "." and srcpath[0] != "/" and srcpath[0] != "\\":
         srcpath='/home/'+ args.username + '/' + srcpath
 
@@ -166,6 +177,7 @@ def download(args):
         print("Failed to download because destination '{0}' already exists. Use --force option to force overwriting.".format(destpath),file=sys.stderr)
         sys.exit(1)
 
+    print("Download file '{0}'".format(srcpath))
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -195,6 +207,8 @@ def listfiles(args):
     if args.dir=='/home/USERNAME':
         args.dir='/home/'+args.username
 
+    print("List files in '{0}'".format(args.dir))
+
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -222,6 +236,7 @@ def delete(args):
     srcpath=args.file
     destpath='/home/'+ args.username + '/' + os.path.basename(srcpath)
 
+    print("Delete on EV3 the file: " + destpath)
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
     ftp.remove(destpath)
@@ -232,6 +247,7 @@ def delete(args):
 
 def patch(args):
 
+    print("install ev3dev addons")
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -241,7 +257,6 @@ def patch(args):
 
     ftp.put(os.path.join(dir_path,'ev3devcmd_res','brickmanrun'), '/tmp/brickmanrun')
     ftp.chmod('/tmp/brickmanrun', 0o775)
-
 
 
     ## next doesn't work, probably because use of pipe
@@ -259,6 +274,16 @@ def patch(args):
     # for line in data:
     #     print(line,file=sys.stderr)
 
+
+    print("install ev3devcontext package on EV3")
+
+    ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
+
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
 
     print("add rpycd.service")
 
@@ -293,17 +318,6 @@ def patch(args):
     data = stderr.read().splitlines()
 
 
-
-    print("install ev3devcontext package on EV3")
-
-    ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
-
-    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
-    stdin.write(args.password+'\n')
-    stdin.flush()
-    data = stdout.read().splitlines()
-    data = stderr.read().splitlines()
-
     print("\n\nfinished")
 
 
@@ -314,14 +328,16 @@ def patch(args):
 
 def _remote_rpyc_stop_and_reset(soft_reset,credentials):
 
-    check_host_online(credentials.address)
+    #check_host_online(credentials.address)
 
     try:
         ip=credentials.address
+        # rpyc.classic.connect has by default a timeout of 3  seconds (see rpyc.SocketStream.connect)
         conn = rpyc.classic.connect(ip) # host name or IP address of the EV3
-    except:
-        print("failed connection with EV3")
-        return
+    except socket.timeout as e:
+        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Or fix EV3 address in \"Tools > Options\" menu.")
+        sys.exit(1)
+
 
     os= conn.modules['os']
     sudoPassword='maker'
@@ -376,11 +392,13 @@ def _remote_rpyc_stop_and_reset(soft_reset,credentials):
 
 
 
-def stop_ev3_programms__and__rpyc_motors_sound(args):
+def stop_ev3_programs__and__rpyc_motors_sound(args):
+    print("stop programs and motors/sound on EV3")
     _remote_rpyc_stop_and_reset(False,args)
 
 
 def soft_reset_ev3(args):
+    print("soft reset the EV3")
     _remote_rpyc_stop_and_reset(True,args)
 
 
@@ -392,6 +410,7 @@ def cleanup(args):
     #       prints an error when it fails in deleting an directory as an file
     args.dir='/home/'+args.username + '/'
 
+    print("Cleanup")
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
@@ -404,7 +423,7 @@ def cleanup(args):
         ssh.close()
         sys.exit(1)
 
-    print("Deleting files in '{0}':".format(args.dir))
+    print("deleting files in '{0}':".format(args.dir))
     for item in files:
         if item[0]==".": continue
 
@@ -478,7 +497,7 @@ def main(argv=None):
 
     # create the parser for the "softreset" command
     parser_sighup = subparsers.add_parser('stop', help="stop all programs on the EV3  (also rpyc started sound/motors)")
-    parser_sighup.set_defaults(func=stop_ev3_programms__and__rpyc_motors_sound)
+    parser_sighup.set_defaults(func=stop_ev3_programs__and__rpyc_motors_sound)
 
     # parse args,
     args=parser.parse_args(argv[1:])

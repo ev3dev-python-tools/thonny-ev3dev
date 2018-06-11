@@ -82,13 +82,14 @@ class MySubprocessDialog(tk.Toplevel):
         #text_font["size"] = int(text_font["size"] * 0.9)
         text_font["family"] = "Courier" if running_on_mac_os() else "Courier New"
         text_frame = tktextext.TextFrame(main_frame, read_only=True, horizontal_scrollbar=False,
+                                         #vertical_scrollbar=False,
                                          background=get_main_background(),
                                          font=text_font,
                                          wrap="word")
         text_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=15, pady=15)
         self.text = text_frame.text
         self.text["width"] = 60
-        self.text["height"] = 7
+        self.text["height"] = 12
         if long_description is not None:
             self.text.direct_insert("1.0", long_description + "\n\n")
 
@@ -315,7 +316,7 @@ def _handle_reset_from_shell(cmd_line):
         get_runner().send_command(ToplevelCommand(command="Reset"))
 
         # stop programmings running on ev3 and stop sound/motors via rpyc
-        stop_ev3_programms__and__rpyc_motors_sound()
+        stop_ev3_programs__and__rpyc_motors_sound()
         #rpyc_stop_in_background()
 
     else:
@@ -651,13 +652,13 @@ def enabled():
 
 
 
-def stop_ev3_programms__and__rpyc_motors_sound():
+def stop_ev3_programs__and__rpyc_motors_sound():
 
     #soft_reset=False
     #t = Thread(target=remote_rpyc_stop_and_reset,args=(soft_reset,))
 
     credentials=get_credentials()
-    t = Thread(target=ev3devcmd.stop_ev3_programms__and__rpyc_motors_sound,args=[credentials])
+    t = Thread(target=ev3devcmd.stop_ev3_programs__and__rpyc_motors_sound,args=[credentials])
     t.start()
 
 
@@ -784,7 +785,7 @@ def load_plugin():
         orig_interrupt_backend()
 
         # stop programmings running on ev3 and stop sound/motors via rpyc
-        stop_ev3_programms__and__rpyc_motors_sound()
+        stop_ev3_programs__and__rpyc_motors_sound()
 
 
     get_runner().interrupt_backend = wrapped_interrupt_backend
