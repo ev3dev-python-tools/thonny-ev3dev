@@ -470,19 +470,18 @@ def start_current_script():
         showerror("Error", error_msg)
 
 
-def download_log(srcpath=None):
+def download_log(currentfile=None):
     """downloads log of given .py file from EV3."""
 
-    if srcpath == None:
+    if currentfile == None:
         return
+    
+    # add ".err.log" if file doesn't end with it!
+    if not currentfile.endswith(".err.log"):
+        currentfile=currentfile + ".err.log"
+    
     list = get_base_ev3dev_cmd() + ['download','--force']
-    if srcpath != None:
-        # take basename to find it in on the ev3 on the user's homedir!
-        # also add ".err.log" if file doesn't end with it!
-        srcpath=os.path.basename(srcpath.strip())
-        if not srcpath.endswith(".err.log"):
-            srcpath=srcpath + ".err.log"
-        list.append(srcpath)
+    list.append(currentfile)
 
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE

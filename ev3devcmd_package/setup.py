@@ -7,7 +7,12 @@ setup(
       name="ev3devcmd",
       version="0.33",
       description="ev3devcmd library and cmdline utility",
-      url="https://www.github.com/harcokuppens/thonny-ev3dev",
+      long_description="""
+ev3devcmd library and cmdline utility
+
+For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd
+""",
+      url="https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd",
       author="Harco Kuppens",
       author_email="h.kuppens@cs.ru.nl",
       license="MIT",

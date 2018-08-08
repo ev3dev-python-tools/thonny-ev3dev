@@ -1,17 +1,14 @@
-
 import socket
 import paramiko
 import rpyc
 import sys
-import os.path
+import os
 import argparse
 
 import ev3devcontext
 
 
 import functools
-
-# automatically flush on each print
 print = functools.partial(print, flush=True)
 
 from time import sleep
@@ -20,7 +17,6 @@ def checkfile(PATH):
     if not ( os.path.isfile(PATH) and os.access(PATH, os.R_OK) ):
         print("Either file '{0}' is missing or is not readable".format(PATH),file=sys.stderr)
         sys.exit(1)
-
 
 def sshconnect(args):
 
@@ -50,12 +46,17 @@ def file_exist_on_ev3(ftp,filepath):
 
 
 def upload(args):
-
-    srcpath=args.file
+    # allow any source path on pc ( relative paths taken relative from cwd where this command is executed)
+    # allow only destination path in homedir on ev3 
+    
+    filename=os.path.basename(args.file)
+    srcdir=os.path.normpath(os.path.join(os.getcwd(), os.path.dirname(args.file)))
+    srcpath=os.path.join(srcdir,filename)
     checkfile(srcpath)
 
-    # for safety:  can only upload file into  homedir
-    destpath='/home/'+ args.username + '/' + os.path.basename(srcpath)
+    # for simplicity:  can only upload file into  homedir, 
+    #                  so we only need to specify srcpath of file on pc
+    destpath='/home/'+ args.username + '/' + filename
 
 
     print("uploading file to EV3 as: " + destpath)
@@ -79,14 +80,21 @@ def upload(args):
     print("\n\nupload succesfull")
     sleep(1)
 
+
+def steer(args):
+    import subprocess
+    my_command=[sys.executable, args.file]
+    my_env = os.environ.copy()
+    my_env["EV3IP"] = args.address
+    my_env["EV3MODE"] = 'remote' 
+    subprocess.Popen(my_command, env=my_env)
+
 def start(args):
 
     # for safety:  we can only upload file into  homedir
     # so programs we start also only in homedir
 
     srcpath='/home/'+ args.username + '/' + os.path.basename(args.file)
-
-
 
     print("Start the execution of the file '{0}' on the EV3'.".format(srcpath))
     ssh=sshconnect(args)
@@ -117,21 +125,20 @@ def start(args):
     sleep(4)  # longer because start on ev3 anyway slow
 
 def download(args):
+    # allow only source path in homedir on ev3 
+    # allow any destination path on pc ( relative paths taken relative from cwd where this command is executed)
 
-    # safety: save file in homedir
-    destpath=os.path.basename(args.file)
 
-    # allow any source path on ev3
-    srcpath=args.file
+    # for simplicity:  can only download file from  homedir on ev3, 
+    #                  so we only need to specify destpath of file on pc
+    filename=os.path.basename(args.file)
+    srcpath='/home/'+ args.username + '/' + filename
+    destdir=os.path.normpath(os.path.join(os.getcwd(), os.path.dirname(args.file)))
+    destpath=os.path.join(destdir,filename)
 
-    # relative paths relative homedir on ev3
-    if srcpath[0] != "." and srcpath[0] != "/" and srcpath[0] != "\\":
-        srcpath='/home/'+ args.username + '/' + srcpath
-
-    from pathlib import Path
-    home = str(Path.home())
-    destpath=os.path.join(home,destpath)
-
+    if not os.path.isdir(destdir):
+        print("Failed to download because destination directory '{0}' does not exists.".format(os.path.dirname(destpath)),file=sys.stderr)
+        sys.exit(1)
     if os.path.isfile(destpath) and not args.force:
         print("Failed to download because destination '{0}' already exists. Use --force option to force overwriting.".format(destpath),file=sys.stderr)
         sys.exit(1)
@@ -146,7 +153,7 @@ def download(args):
         ssh.close()
         sys.exit(1)
 
-    print("ftp.get({0}, {1}".format(srcpath, destpath))
+    #print("ftp.get({0}, {1})".format(srcpath, destpath))
 
     try:
         ftp.get(srcpath, destpath)
@@ -419,42 +426,49 @@ def main(argv=None):
     subparsers.required = True
 
     # create the parser for the "list" command
-    parser_list = subparsers.add_parser('list',help="list all files in home folder on EV3")
+    parser_list = subparsers.add_parser('list',help="list all files in homedir on EV3")
     parser_list.set_defaults(func=listfiles)
     parser_list.add_argument('dir', nargs='?', default='/home/USERNAME')
     # create the parser for the "upload" command
-    parser_upload = subparsers.add_parser('upload',help="upload file to EV3")
-    parser_upload.add_argument('file', type=str)
+    parser_upload = subparsers.add_parser('upload',help="upload file to homedir on EV3")
+    parser_upload.add_argument('file', type=str,help="source path on pc; destination path on EV3 is /home/USERNAME/basename(file)")
     parser_upload.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
     parser_upload.set_defaults(func=upload)
-    # create the parser for the "start" command
-    parser_start = subparsers.add_parser('start',help='start file on EV3; must already be on EV3')
-    parser_start.add_argument('file', type=str)
-    parser_start.set_defaults(func=start)
     # create the parser for the "download" command
-    parser_download = subparsers.add_parser('download',help='download file from EV3')
-    parser_download .add_argument('file', type=str)
+    parser_download = subparsers.add_parser('download',help='download file from homedir on EV3')
+    parser_download.add_argument('file', type=str,help="destination path on pc; source path on EV3 is /home/USERNAME/basename(file)")
     parser_download.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
-    parser_download .set_defaults(func=download)
+    parser_download.set_defaults(func=download)
     # create the parser for the "delete" command
-    parser_delete = subparsers.add_parser('delete', help='delete a file in home folder on EV3')
+    parser_delete = subparsers.add_parser('delete', help='delete a file in homedir on EV3')
     parser_delete.add_argument('file', type=str)
+    parser_delete.add_argument('file', type=str,help="file in EV3's homedir; directory of file is ignored")
     parser_delete.set_defaults(func=delete)
     # create the parser for the "clean" command
-    parser_clean = subparsers.add_parser('cleanup', help='delete all files in home folder on EV3')
+    parser_clean = subparsers.add_parser('cleanup', help='delete all files in homedir on EV3')
     parser_clean.set_defaults(func=cleanup)
 
-    # create the parser for the "clean" command
-    parser_patch = subparsers.add_parser('install_additions', help='install ev3dev additions on the EV3 when just having installed a newly installed ev3dev image')
-    parser_patch.set_defaults(func=patch)
-
+    # create the parser for the "start" command
+    parser_start = subparsers.add_parser('start',help="run program on EV3; program must already be on EV3's homedir")
+    parser_start.add_argument('file', type=str,help="program in EV3's homedir; directory of file is ignored")
+    parser_start.set_defaults(func=start)
+    # create the parser for the "steer" command
+    parser_steer = subparsers.add_parser('steer',help="run program on PC remotely steering the EV3")
+    parser_steer.add_argument('file', type=str,help="EV3 program on pc")
+    parser_steer.set_defaults(func=steer)
+    # create the parser for the "stop" command
+    parser_sighup = subparsers.add_parser('stop', help="stop all programs on the EV3  (also rpyc started sound/motors)")
+    parser_sighup.set_defaults(func=stop_ev3_programs__and__rpyc_motors_sound)
+    
     # create the parser for the "softreset" command
     parser_sighup = subparsers.add_parser('softreset', help="soft reset the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)")
     parser_sighup.set_defaults(func=soft_reset_ev3)
 
-    # create the parser for the "softreset" command
-    parser_sighup = subparsers.add_parser('stop', help="stop all programs on the EV3  (also rpyc started sound/motors)")
-    parser_sighup.set_defaults(func=stop_ev3_programs__and__rpyc_motors_sound)
+    # create the parser for the "install_additions" command
+    parser_patch = subparsers.add_parser('install_additions', help='install ev3dev additions on the EV3 when just having installed a newly installed ev3dev image')
+    parser_patch.set_defaults(func=patch)
+
+
 
     # parse args,
     args=parser.parse_args(argv[1:])
