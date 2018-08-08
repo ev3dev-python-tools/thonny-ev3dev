@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcmd",
-      version="0.33",
+      version="0.34",
       description="ev3devcmd library and cmdline utility",
       long_description="""
 ev3devcmd library and cmdline utility

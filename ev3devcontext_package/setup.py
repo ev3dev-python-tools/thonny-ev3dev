@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcontext",
-      version="0.33",
+      version="0.34",
       description="using the ev3devcontext library your EV3 program can run in different contexts without the need to change a single line of code",
       long_description="""
 Using the ev3devcontext library your EV3 program can run in different contexts
