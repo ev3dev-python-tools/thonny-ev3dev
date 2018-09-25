@@ -492,7 +492,7 @@ def download_log(currentfile=None):
     if dlg.returncode == 0:
         from pathlib import Path
         home = str(Path.home())
-        open_file(srcpath,home,True)
+        open_file(currentfile,home,True)
 
 
 

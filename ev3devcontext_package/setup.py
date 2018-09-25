@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcontext",
-      version="0.34",
+      version="0.35",
       description="using the ev3devcontext library your EV3 program can run in different contexts without the need to change a single line of code",
       long_description="""
 Using the ev3devcontext library your EV3 program can run in different contexts
@@ -43,6 +43,6 @@ For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcont
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.4",
-      install_requires=['rpyc','python-ev3dev','python-ev3dev2'],
+      install_requires=['rpyc<4.0.0','python-ev3dev','python-ev3dev2'],
       py_modules=["ev3devcontext"]
 )
