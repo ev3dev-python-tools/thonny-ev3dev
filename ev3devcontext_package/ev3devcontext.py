@@ -9,7 +9,7 @@ connection=None
 
 def importModule(modulepath):   
     global connection
-    if platform.node() == 'ev3dev':
+    if platform.node().startswith('ev3dev'):
         result=importlib.import_module(modulepath)
     else:
         if os.environ.get('EV3MODE') == "remote":

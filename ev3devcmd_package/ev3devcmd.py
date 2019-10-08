@@ -219,6 +219,7 @@ def patch(args):
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
+
     print("add /usr/bin/brickmanrun")
 
     ftp.put(os.path.join(dir_path,'ev3devcmd_res','brickmanrun'), '/tmp/brickmanrun')
@@ -240,6 +241,21 @@ def patch(args):
     # for line in data:
     #     print(line,file=sys.stderr)
 
+    print("install rpyc-4.1.2 package on EV3 (can take 60 seconds)")
+
+    ftp.put(os.path.join(dir_path,'ev3devcmd_res','rpyc-4.1.2.tar.gz'), '/tmp/rpyc-4.1.2.tar.gz')
+
+    stdin, stdout, stderr = ssh.exec_command('sudo tar -C /tmp -xzvf /tmp/rpyc-4.1.2.tar.gz',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
+
+    stdin, stdout, stderr = ssh.exec_command('cd /tmp/rpyc-4.1.2/;sudo python3 setup.py install',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
 
     print("install ev3devcontext package on EV3")
 
@@ -274,7 +290,7 @@ def patch(args):
     # for line in data:
     #     print(line,file=sys.stderr)
 
-    print("start rpycd.service")
+    print("start rpycd.service (can take 30 seconds)")
 
     # restart instead of start, to make sure older version is stopped first
     stdin, stdout, stderr = ssh.exec_command('sudo systemctl restart rpycd.service',get_pty=True)

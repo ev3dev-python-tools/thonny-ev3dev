@@ -3,7 +3,7 @@ Description=Classic rpyc server in threaded mode with hup reset support
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/rpyc_classic.py
+ExecStart=/usr/local/bin/rpyc_classic.py  --host 0.0.0.0
 Restart=on-failure
 # by default restarts after 100ms
 
