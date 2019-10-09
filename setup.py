@@ -57,7 +57,7 @@ For more info about Thonny: http://thonny.org
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.4",
-      install_requires=requirements,
+      install_requires=['ev3devcmd'],
       packages=["thonnycontrib.ev3dev"],
       package_data={'thonnycontrib.ev3dev': ['res/*']}
 )
