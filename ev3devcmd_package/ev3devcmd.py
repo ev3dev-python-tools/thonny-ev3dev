@@ -416,6 +416,8 @@ def cleanup(args):
     ftp.close()
     ssh.close()
 
+
+
 def main(argv=None):
     """
     Entry point for the command line tool 'sshuploadev3'.
@@ -432,7 +434,11 @@ def main(argv=None):
     default_password=os.environ.get('EV3PASSWORD') or 'maker'
 
 
-    parser = argparse.ArgumentParser(prog='ev3dev',description="commands to upload/start/download/delete/cleanup programs on the EV3")
+    # use RawDescriptionHelpFormatter: which allows formatting you desription with newlines yourself, however the commandline options
+    #                                  are formatted automatically (newlines you place are ignored).
+    parser = argparse.ArgumentParser(prog='ev3dev', formatter_class=argparse.RawDescriptionHelpFormatter,
+              description="Commands to upload/start/download/delete/cleanup programs on the EV3\nComplete documentation at: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd ")
+
     parser.add_argument('-a', '--address',action='store',default=default_ip,help="network address of EV3. Can also be set with EV3IP environment variable.")
     parser.add_argument('-u', '--username',action='store',default=default_user,help="username used to login with ssh on EV3. Can also be set with EV3USERNAME environment variable.")
     parser.add_argument('-p', '--password',action='store',default=default_password,help="password used to login with ssh on EV3. Can also be set with EV3PASSWORD environment variable.")
@@ -457,7 +463,6 @@ def main(argv=None):
     parser_download.set_defaults(func=download)
     # create the parser for the "delete" command
     parser_delete = subparsers.add_parser('delete', help='delete a file in homedir on EV3')
-    parser_delete.add_argument('file', type=str)
     parser_delete.add_argument('file', type=str,help="file in EV3's homedir; directory of file is ignored")
     parser_delete.set_defaults(func=delete)
     # create the parser for the "clean" command
