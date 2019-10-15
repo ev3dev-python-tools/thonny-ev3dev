@@ -4,16 +4,15 @@ import sys
 
 
 setup(
-      name="ev3devcontext",
+      name="ev3devlogging",
       version="0.37",
-      description="using the ev3devcontext library your EV3 program can run in different contexts without the need to change a single line of code",
+      description="easy logging library for ev3dev",
       long_description="""
-Using the ev3devcontext library your EV3 program can run in different contexts
-without the need to change a single line of code.
+easy logging library for ev3dev
 
-For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcontext
+For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devlogging
 """,
-      url="https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcontext",
+      url="https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devlogging",
       author="Harco Kuppens",
       author_email="h.kuppens@cs.ru.nl",
       license="MIT",
@@ -44,6 +43,6 @@ For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcont
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.4",
-      install_requires=['ev3devrpyc','ev3dev2simulator'],
-      py_modules=["ev3devcontext"]
+      #install_requires=['logging'],  # logging in standard distribution
+      py_modules=["ev3devlogging"]
 )

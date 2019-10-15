@@ -4,16 +4,18 @@ import sys
 
 
 setup(
-      name="ev3devcontext",
+      name="ev3devrpyc",
       version="0.37",
-      description="using the ev3devcontext library your EV3 program can run in different contexts without the need to change a single line of code",
+      description="Transform ev3dev(2) api into a remoted proxied api using rpyc",
       long_description="""
-Using the ev3devcontext library your EV3 program can run in different contexts
-without the need to change a single line of code.
+Transform ev3dev(2) api into a remoted proxied api using rpyc.      
+      
+When importing this module it installs a special importer into the python import infrastructure which from then
+proxies every ev3dev module when imported.     
 
-For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcontext
+For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devrpyc
 """,
-      url="https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcontext",
+      url="https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devrpyc",
       author="Harco Kuppens",
       author_email="h.kuppens@cs.ru.nl",
       license="MIT",
@@ -44,6 +46,6 @@ For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcont
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.4",
-      install_requires=['ev3devrpyc','ev3dev2simulator'],
-      py_modules=["ev3devcontext"]
+      install_requires=['rpyc==4.1.2','python-ev3dev','python-ev3dev2'],
+      py_modules=["ev3devrpyc"]
 )

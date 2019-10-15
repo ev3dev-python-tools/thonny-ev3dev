@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcmd",
-      version="0.36",
+      version="0.37",
       description="ev3devcmd library and cmdline utility",
       long_description="""
 ev3devcmd library and cmdline utility
@@ -36,6 +36,7 @@ For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Education",
         "Topic :: Software Development",
       ],
