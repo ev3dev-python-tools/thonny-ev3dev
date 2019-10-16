@@ -1,0 +1,3 @@
+include ev3dev2simulator/config/*
+include ev3dev2simulator/assets/images/*
+recursive-include ev3dev2simulator/ *.txt *.py

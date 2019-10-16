@@ -788,7 +788,7 @@ def load_plugin():
     get_workbench().add_command("ev3runsim", "tools", "Run simulator of EV3",
                                 run_simulator,
                                 currentscript_and_command_enabled,
-                                default_sequence="<F11>",
+                                default_sequence="<F4>",
                                 group=295,
                                 image_filename=image_path_simulator,
                                 include_in_toolbar=True)

@@ -1,30 +1,18 @@
-from setuptools import setup
+from setuptools import setup,find_packages
 import os.path
 import sys
 
-setupdir = os.path.dirname(__file__)
-
-
 
 setup(
-      name="thonny-ev3dev",
+      name="ev3dev2simulator",
       version="0.37",
-      description="A plug-in which adds EV3 support for Thonny",
+      description="ev3 simulator for ev3dev2 library",
       long_description="""
-The thonny-ev3dev package is a plug-in which adds EV3 support for Thonny.
+ev3 simulator for ev3dev2 library
 
-To correctly use the thonny-ev3dev plugin you must not use 'import ev3dev.ev3 as
-ev3' to import the ev3dev library, but instead you import it as:
-
-    import ev3devcontext; ev3=ev3devcontext.getEV3API()
-
-Then depending on the context(simulator,EV3,pc) the right library is loaded.   
-
-For more info about the thonny-ev3dev plugin see: https://github.com/harcokuppens/thonny-ev3dev/wiki
-
-For more info about Thonny: http://thonny.org
+For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3dev2simulator
 """,
-      url="https://www.github.com/harcokuppens/thonny-ev3dev",
+      url="https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3dev2simulator",
       author="Harco Kuppens",
       author_email="h.kuppens@cs.ru.nl",
       license="MIT",
@@ -48,13 +36,18 @@ For more info about Thonny: http://thonny.org
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Education",
         "Topic :: Software Development",
       ],
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
-      install_requires=['ev3devcmd','ev3dev2simulator','ev3devlogging'],
-      packages=["thonnycontrib.ev3dev"],
-      package_data={'thonnycontrib.ev3dev': ['res/*']}
+      install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk','dataclasses'],
+      packages=find_packages(),
+      include_package_data=True,
+
+      #packages=["ev3dev2simulator","ev3dev2"],
+      #package_dir ={'ev3dev2simulator': 'ev3dev2simulator', 'ev3dev2':'ev3dev2simulator/ev3dev2api/ev3dev2'},
+      scripts=['bin/ev3dev2simulator']
 )
