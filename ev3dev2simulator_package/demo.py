@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import ev3devcontext
 
+from ev3devlogging import timedlog as log
+
 from ev3dev2._platform.ev3 import INPUT_1, INPUT_4, INPUT_2, INPUT_3
 from ev3dev2.motor import MoveTank, OUTPUT_A, OUTPUT_D, SpeedPercent
 from ev3dev2.sensor.lego import ColorSensor
@@ -89,12 +91,18 @@ class Runner:
     def check(self):
         while True:
             colorNr = self.cs.color
-            if colorNr == 1: # black  
+            #print("loop")
+            
+            if colorNr == 1: # black
+                print("border")
+                log("border")
                 self.tank_drive.stop()
                 self.reverseRotations(1)
                 self.rotateDegrees(150)
                 self.drive()
             elif (colorNr == 2 or colorNr == 4 or colorNr == 5) : # blue or yellow or red
+                print("lake")
+                log("lake")
                 self.tank_drive.stop()
                 self.rotateDegrees(90)
                 self.drive()
