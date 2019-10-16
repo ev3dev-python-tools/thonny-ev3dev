@@ -404,6 +404,16 @@ def upload(file=None):
     dlg.wait_window()
 
 
+def run_simulator():
+
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator.Simulator']
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+
+
+
 def upload_current_script():
     """upload current python script to EV3"""
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
@@ -699,7 +709,7 @@ def load_plugin():
     image_path_remoterun = os.path.join(os.path.dirname(__file__), "res", "remoterun.gif")
     image_path_remotedebug = os.path.join(os.path.dirname(__file__), "res", "remotedebug.gif")
 
-
+    image_path_simulator = os.path.join(os.path.dirname(__file__), "res", "simulator.gif")
     image_path_upload = os.path.join(os.path.dirname(__file__), "res", "up.gif")
     image_path_run = os.path.join(os.path.dirname(__file__), "res", "flash.gif")
     image_path_log = os.path.join(os.path.dirname(__file__), "res", "log.gif")
@@ -775,7 +785,13 @@ def load_plugin():
                                 image_filename=image_path_clean,
                                 include_in_toolbar=True)
 
-
+    get_workbench().add_command("ev3runsim", "tools", "Run simulator of EV3",
+                                run_simulator,
+                                currentscript_and_command_enabled,
+                                default_sequence="<F11>",
+                                group=295,
+                                image_filename=image_path_simulator,
+                                include_in_toolbar=True)
 
     orig_interrupt_backend=get_runner().interrupt_backend
     def wrapped_interrupt_backend():

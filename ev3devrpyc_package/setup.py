@@ -45,7 +45,7 @@ For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devrpyc
       ],
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
-      python_requires=">=3.4",
+      python_requires=">=3.6",
       install_requires=['rpyc==4.1.2','python-ev3dev','python-ev3dev2'],
       py_modules=["ev3devrpyc"]
 )

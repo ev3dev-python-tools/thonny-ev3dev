@@ -42,8 +42,9 @@ For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd
       ],
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
-      python_requires=">=3.4",
-      install_requires=['rpyc==4.1.2','paramiko','ev3devcontext'],
+      python_requires=">=3.6",
+      #install_requires=['rpyc==4.1.2','paramiko','ev3devcontext'],
+      install_requires=['rpyc==4.1.2','paramiko','ev3devlogging'],
       py_modules=["ev3devcmd"],
       #hack to add resource dir to simple python module: using fake package
       packages=["ev3devcmd_res"],

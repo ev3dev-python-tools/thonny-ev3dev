@@ -4,10 +4,7 @@ import sys
 
 setupdir = os.path.dirname(__file__)
 
-requirements = []
-for line in open(os.path.join(setupdir, 'requirements.txt'), encoding="UTF-8"):
-    if line.strip() and not line.startswith('#'):
-        requirements.append(line)
+
 
 setup(
       name="thonny-ev3dev",
@@ -56,8 +53,8 @@ For more info about Thonny: http://thonny.org
       ],
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
-      python_requires=">=3.4",
-      install_requires=['ev3devcmd'],
+      python_requires=">=3.6",
+      install_requires=['ev3devcmd','ev3dev2simulator'],
       packages=["thonnycontrib.ev3dev"],
       package_data={'thonnycontrib.ev3dev': ['res/*']}
 )

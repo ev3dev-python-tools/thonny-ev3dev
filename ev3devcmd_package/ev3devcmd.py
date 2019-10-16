@@ -5,7 +5,8 @@ import sys
 import os
 import argparse
 
-import ev3devcontext
+#import ev3devcontext
+import ev3devlogging
 
 
 import functools
@@ -257,11 +258,22 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
+    print("install ev3devlogging package on EV3")
+
+    ftp.put(ev3devlogging.__file__, '/tmp/ev3devlogging.py')
+
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devlogging.py /usr/lib/python3/dist-packages/ev3devlogging.py',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
+
     print("install ev3devcontext package on EV3")
 
-    ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
+    #ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
 
-    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
+    #stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
+    stdin, stdout, stderr = ssh.exec_command('sudo truncate -s0 /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
     stdin.write(args.password+'\n')
     stdin.flush()
     data = stdout.read().splitlines()
