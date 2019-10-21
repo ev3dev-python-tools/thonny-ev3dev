@@ -315,53 +315,13 @@ def _handle_reset_from_shell(cmd_line):
     if len(args) == 0:
         get_runner().send_command(ToplevelCommand(command="Reset"))
 
-        # stop programmings running on ev3 and stop sound/motors via rpyc
+        # stop programmings running on ev3 and stop sound/motors via ssh
         stop_ev3_programs__and__rpyc_motors_sound()
-        #rpyc_stop_in_background()
 
     else:
         print_error_in_backend("Command 'Reset' doesn't take arguments")
 
 
-def _handle_rundebug_from_shell(cmd_line):
-    """
-    Handles all commands that take a filename and 0 or more extra arguments.
-    Passes the command to backend.
-
-    (Debugger plugin may also use this method)
-    """
-    command, args = parse_shell_command(cmd_line)
-
-    if len(args) >= 1:
-        get_workbench().get_editor_notebook().save_all_named_editors()
-
-        origcommand=command
-        if command == "Ev3RemoteRun":
-            command="Run"
-        if command == "Ev3RemoteDebug":
-            command="Debug"
-
-        cmd = ToplevelCommand(command=command,
-                              filename=args[0],
-                              args=args[1:])
-
-        if origcommand == "Ev3RemoteRun" or origcommand == "Ev3RemoteDebug":
-            cmd.environment={ "EV3MODE" : "remote", "EV3IP": get_workbench().get_option("ev3.ip") }
-
-        if os.path.isabs(cmd.filename):
-            cmd.full_filename = cmd.filename
-        else:
-            runner=get_runner()
-            cmd.full_filename = os.path.join(runner.get_cwd(), cmd.filename)
-
-        if command in ["Run", "run", "Debug", "debug"]:
-            with tokenize.open(cmd.full_filename) as fp:
-                cmd.source = fp.read()
-
-        get_runner().send_command(cmd)
-    else:
-
-        print_error_in_backend("Command '{}' takes at least one argument".format(command))
 
 
 
@@ -561,21 +521,33 @@ def cleanup_files_on_ev3():
     dlg.wait_window()
 
 
-def patch_ev3():
-    """Install additions needed for thonny-ev3dev plugin on EV3."""
-    list = get_base_ev3dev_cmd() + ['install_additions']
+def install_rpyc_server():
+    """Install rpyc server on the EV3. The server is immediately started after installation."""
+    list = get_base_ev3dev_cmd() + ['install_rpyc_server']
 
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
-    #env["PYTHONPATH"] = ":".join(sys.path)
 
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
 
 
-    dlg = MySubprocessDialog(get_workbench(), proc, "Install thonny-ev3dev plugin additions to the ev3dev sdcard", autoclose=False)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Install rpyc server on the EV3. The server is immediately started after installation.", autoclose=False)
     dlg.wait_window()
 
+def install_logging():
+    """Install ev3devlogging package to the EV3."""
+    list = get_base_ev3dev_cmd() + ['install_logging']
+
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+
+
+    dlg = MySubprocessDialog(get_workbench(), proc, "Install ev3devlogging package to the EV3", autoclose=False)
+    dlg.wait_window()
 
 
 def cmd_interrupt_reset():
@@ -663,32 +635,13 @@ def enabled():
 
 def stop_ev3_programs__and__rpyc_motors_sound():
 
-    #soft_reset=False
-    #t = Thread(target=remote_rpyc_stop_and_reset,args=(soft_reset,))
-
     credentials=get_credentials()
-    t = Thread(target=ev3devcmd.stop_ev3_programs__and__rpyc_motors_sound,args=[credentials])
+    t = Thread(target=ev3devcmd.killall,args=[credentials])
     t.start()
 
 
 
 
-def soft_reset_ev3():
-
-
-    list = get_base_ev3dev_cmd() + ['softreset']
-
-    env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
-    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Soft reset EV3", autoclose=False)
-    dlg.wait_window()
-
-    # #soft_reset=True
-    # #t = Thread(target=remote_rpyc_stop_and_reset,args=(soft_reset,))
-    # t = Thread(target=soft_reset_ev3())
-    # t.start()
 
 
 
@@ -722,38 +675,36 @@ def load_plugin():
 
     # menu buttons
 
-    get_workbench().add_command("ev3remoterun", "run", "Run current script using the EV3 API in remote control mode" ,
-                                get_button_handler_for_magiccmd_on_current_file("Ev3RemoteRun"),
-                                currentscript_and_command_enabled,
-                                default_sequence="<F9>",
-                                group=20,
-                                image_filename=image_path_remoterun,
-                                include_in_toolbar=True)
-    get_workbench().add_command("ev3remotedebug", "run", "Debug current script using the EV3 API in remote control mode" ,
-                                get_button_handler_for_magiccmd_on_current_file("Ev3RemoteDebug"),
-                                currentscript_and_command_enabled,
-                                default_sequence="<Control-F9>",
-                                group=20,
-                                image_filename=image_path_remotedebug,
-                                include_in_toolbar=True)
+    # get_workbench().add_command("ev3remoterun", "run", "Run current script using the EV3 API in remote control mode" ,
+    #                             get_button_handler_for_magiccmd_on_current_file("Ev3RemoteRun"),
+    #                             currentscript_and_command_enabled,
+    #                             default_sequence="<F9>",
+    #                             group=20,
+    #                             image_filename=image_path_remoterun,
+    #                             include_in_toolbar=True)
+    # get_workbench().add_command("ev3remotedebug", "run", "Debug current script using the EV3 API in remote control mode" ,
+    #                             get_button_handler_for_magiccmd_on_current_file("Ev3RemoteDebug"),
+    #                             currentscript_and_command_enabled,
+    #                             default_sequence="<Control-F9>",
+    #                             group=20,
+    #                             image_filename=image_path_remotedebug,
+    #                             include_in_toolbar=True)
 
-    get_workbench().add_command("ev3patch", "tools", "Install ev3dev additions to the ev3dev sdcard on the EV3",
-                                patch_ev3,
+    get_workbench().add_command("ev3_install_logging", "tools", "Install ev3devlogging package to the EV3.",
+                                install_logging,
                                 command_enabled,
                                 default_sequence=None,
                                 group=270,
                                 #image_filename=image_path_upload,
                                 include_in_toolbar=False)
 
-    get_workbench().add_command("ev3softreset", "tools", "Soft reset the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)",
-                                soft_reset_ev3,
+    get_workbench().add_command("ev3_install_rpyc_server", "tools", "Install rpyc server on the EV3. The server is immediately started after installation.",
+                                install_rpyc_server,
                                 command_enabled,
                                 default_sequence=None,
-                                group=275,
-                                #image_filename=image_path_clean,
+                                group=270,
+                                #image_filename=image_path_upload,
                                 include_in_toolbar=False)
-
-
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
                                 upload_current_script,
@@ -810,12 +761,7 @@ def load_plugin():
     # magic commands
     shell = get_workbench().get_view("ShellView")
 
-    shell.add_command("Ev3RemoteRun", _handle_rundebug_from_shell)
-    shell.add_command("Ev3RemoteDebug", _handle_rundebug_from_shell)
-
-
     shell.add_command("Reset", _handle_reset_from_shell)
-
     shell.add_command("pwd", _handle_pwd_from_shell)
     shell.add_command("cd", _handle_cd_from_shell)
     shell.add_command("ls", _handle_ls_from_shell)

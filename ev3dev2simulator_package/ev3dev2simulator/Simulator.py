@@ -14,8 +14,9 @@ os.chdir(script_dir)
 
 ## below not needed if ev3dev2simulator installed on PYTHONPATH
 ## put dir which contains  ev3dev2simulator on PYTHONPATH
-#ev3devsimulator_dir = os.path.dirname(scriptdir)
-#sys.path.insert(0,ev3devsimulator_dir)
+ev3devsimulator_dir = os.path.dirname(script_dir)
+#sys.path.append(ev3devsimulator_dir)
+sys.path.insert(0,ev3devsimulator_dir)
 
 
 from ev3dev2simulator.config.config import load_config, write_scale_config, load_scale_config

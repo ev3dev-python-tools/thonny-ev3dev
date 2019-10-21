@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devcmd",
-      version="0.37",
+      version="0.38",
       description="ev3devcmd library and cmdline utility",
       long_description="""
 ev3devcmd library and cmdline utility
@@ -43,8 +43,7 @@ For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3devcmd
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
-      #install_requires=['rpyc==4.1.2','paramiko','ev3devcontext'],
-      install_requires=['rpyc==4.1.2','paramiko','ev3devlogging'],
+      install_requires=['ev3devlogging','paramiko==2.4.1','sftpclone==1.2.2'],
       py_modules=["ev3devcmd"],
       #hack to add resource dir to simple python module: using fake package
       packages=["ev3devcmd_res"],

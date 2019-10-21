@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3dev2simulator",
-      version="0.37",
+      version="0.38",
       description="ev3 simulator for ev3dev2 library",
       long_description="""
 ev3 simulator for ev3dev2 library

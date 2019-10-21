@@ -1,13 +1,10 @@
 import socket
 import paramiko
-import rpyc
 import sys
 import os
 import argparse
-
-#import ev3devcontext
+import sftpclone.sftpclone
 import ev3devlogging
-
 
 import functools
 print = functools.partial(print, flush=True)
@@ -28,12 +25,13 @@ def sshconnect(args):
         # like for rpyc.classic.connect we use a 3 seconds timeout for ssh.connect
         ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
     except socket.timeout as e:
-        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Or fix EV3 address in \"Tools > Options\" menu.")
+        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
         sys.exit(1)
     except paramiko.ssh_exception.AuthenticationException as e:
-        print("\nProblem: failed connecting with EV3: authentication failed.\n         Fix credentials in \"Tools > Options\" menu.")
+        print("\nProblem: failed connecting with EV3: authentication failed.\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
         sys.exit(1)
     return ssh
+
 
 def file_exist_on_ev3(ftp,filepath):
     file_exist=True
@@ -43,7 +41,14 @@ def file_exist_on_ev3(ftp,filepath):
         file_exist=False
     return  file_exist
 
-
+def line_buffered(f):
+    line_buf = ""
+    while not f.channel.exit_status_ready():
+        b=f.read(1)
+        line_buf += b.decode('utf-8')
+        if line_buf.endswith('\n'):
+            yield line_buf
+            line_buf = ''
 
 
 def upload(args):
@@ -82,14 +87,6 @@ def upload(args):
     sleep(1)
 
 
-def steer(args):
-    import subprocess
-    my_command=[sys.executable, args.file]
-    my_env = os.environ.copy()
-    my_env["EV3IP"] = args.address
-    my_env["EV3MODE"] = 'remote' 
-    subprocess.Popen(my_command, env=my_env)
-
 def start(args):
 
     # for safety:  we can only upload file into  homedir
@@ -107,23 +104,155 @@ def start(args):
         ssh.close()
         sys.exit(1)
 
+
     try:
-        ssh.exec_command('/usr/bin/brickmanrun ' + srcpath)
+        print("Running start command on the EV3.")
+        client_shell = ssh.invoke_shell()
+        stdin = client_shell.makefile('wb')
+        stdout = client_shell.makefile('rb')
+
+        # getting sudo rights
+        source=r'''
+            runprogram(){
+                program=$(realpath "$1")
+                errlogfile="$program".err.log
+                directory=$(dirname "$program")
+                /usr/bin/brickrun --directory $directory -- $program 2> $errlogfile  
+                if [[ ! -s $errlogfile ]]; then rm -f $errlogfile; fi
+            }
+        '''
+
+        source= source + '''
+            runprogram "{}" >/dev/null &
+        '''.format(srcpath)
+
+        stdin.write(source)
+        stdin.write('exit\n')
+        stdin.flush()
+
+        # read stdout output  line for line so that we can show progress
+        # note: stdout also contains stderr of shell
+
+        # stdin gets also output to stdout, so filter that first out (don't print)
+        for line in line_buffered(stdout):
+            if ("exit" in line):
+                break
+
+        # only display stdout without prompt($)
+        for line in line_buffered(stdout):
+            if (not "$" in line) and (not line.startswith('>')) and (not "Last login:" in line) and (not "logout" in line):
+                  print(line, end = '')
     except Exception as inst:
-        print("Failed to start the execution of the file '{0}' on the EV3'.".format(srcpath),file=sys.stderr)
+        print(inst)
+        print("Failed running start command on the EV3.",file=sys.stderr)
         ftp.close()
         ssh.close()
         sys.exit(1)
 
-    print("Succesfully started  the file '{0}' on the EV3.".format(srcpath))
-    print("This command only starts the execution on the EV3, but doesn't wait for the execution to be finished." )
+    print("\n\nStart succesfully")
 
     ftp.close()
     ssh.close()
 
     # quickly show in modal dialog in thonny before it exits
-    print("\n\nstart succesfull")
     sleep(4)  # longer because start on ev3 anyway slow
+
+
+
+
+
+
+
+# requires ev3killall installed
+def killall(args):
+
+    print("stop/kill all programs and motors/sound on EV3\n\n")
+
+    ssh=sshconnect(args)
+    ftp = ssh.open_sftp()
+    password=args.password
+
+    # if not file_exist_on_ev3(ftp,'/usr/bin/ev3killall'):
+    #     print("You need to install the EV3 additions to get the ev3killall command working.",file=sys.stderr)
+    #     ftp.close()
+    #     ssh.close()
+    #     sys.exit(1)
+
+
+
+    try:
+        # stdin, stdout, stderr = ssh.exec_command('sudo /usr/bin/ev3killall',get_pty=True)
+        # stdin.write(args.password+'\n')
+        # stdin.flush()
+
+        client_shell = ssh.invoke_shell()
+        stdin = client_shell.makefile('wb')
+        stdout = client_shell.makefile('rb')
+
+        # getting sudo rights
+        stdin.write('echo {}| sudo -S echo "getting sudo rights" &> /dev/null'.format(password))
+
+        # read from resource:
+        #
+        # dir_path = os.path.dirname(os.path.realpath(__file__))
+        # filepath=os.path.join(dir_path,'ev3devcmd_res','ev3killall.bash')
+        # with open(filepath,'r') as f:
+        #     shellcode=f.read()
+        #
+        # stdin.write(shellcode)
+        # stdin.flush()
+
+        stdin.write(r'''
+            printf "kill programs running on EV3\n"
+            # kill programs running on ev3
+            pid=`pgrep -f 'python3 /home/robot'`
+            if [[ -n $pid ]]
+            then 
+              kill -9 -$pid
+            fi
+            
+            printf "stop motors on EV3\n"
+            # kill motors
+            python3 -c "exec(\"import ev3dev.ev3\nfor m in ev3dev.ev3.list_motors():\n  m.reset()\")"
+            
+            printf "stop sound on EV3\n"
+            # kill sound via beep
+            sudo  pkill -f /usr/bin/aplay
+            
+            # kill sound aplay
+            sudo pkill -f /usr/bin/beep
+            
+            printf "set leds back to default of green\n"
+            python3 -c "exec(\"import ev3dev.ev3\nev3dev.ev3.Leds.set_color(ev3dev.ev3.Leds.LEFT, ev3dev.ev3.Leds.GREEN)\nev3dev.ev3.Leds.set_color(ev3dev.ev3.Leds.RIGHT, ev3dev.ev3.Leds.GREEN)\")"
+        ''')
+        stdin.write('exit\n')
+        stdin.flush()
+        # read stdout output  line for line so that we can show progress
+        # note: stdout also contains stderr of shell
+
+        # stdin gets also output to stdout, so filter that first out (don't print)
+        for line in line_buffered(stdout):
+            if ("exit" in line):
+                break
+
+        # only display stdout without prompt($)
+        for line in line_buffered(stdout):
+            if (not "$" in line) and (not line.startswith('>')) and (not password in line) and (not "Last login:" in line) and (not "logout" in line):
+                print(line, end = '')
+    except Exception as inst:
+        print("Failed running /usr/bin/ev3killall on the EV3.",file=sys.stderr)
+        ftp.close()
+        ssh.close()
+        sys.exit(1)
+
+    print("\n\nSuccesfully runned the command 'killall' on the EV3.")
+
+    ftp.close()
+    ssh.close()
+
+    # quickly show in modal dialog in thonny before it exits
+    sleep(4)  # longer because start on ev3 anyway slow
+
 
 def download(args):
     # allow only source path in homedir on ev3 
@@ -212,35 +341,91 @@ def delete(args):
     print("succesfully deleted on EV3 the file: " + destpath)
 
 
-def patch(args):
 
-    print("install ev3dev addons")
+
+
+
+# mirror
+#--------
+
+orig_remove = None
+base_remote_path = None
+
+def new_remove(remote_path):
+    global orig_remove
+    global base_remote_path
+    if remote_path.startswith( os.path.join(base_remote_path,".") ):
+        #print("skip delete: " + remote_path)
+        return
+
+    orig_remove(remote_path)
+
+
+
+def base_mirror(args,local_path,dest_path):
+
+    remote_url=r'{username}:{password}@{server}:{dest_dir}'.format(username=args.username, password=args.password,server=args.address,dest_dir=dest_path)
+
+    import logging
+    sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
+    #sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.DEBUG)
+    sync = sftpclone.sftpclone.SFTPClone(local_path,remote_url)
+
+    global orig_remove
+    global base_remote_path
+    base_remote_path=sync.remote_path
+
+    orig_remove=sync.sftp.remove
+    sync.sftp.remove=new_remove
+
+    sync.run()
+
+
+def mirror(args):
+
+    # ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
+    src_path=args.sourcedir
+    dest_path='/home/'+ args.username
+
+# test begin
+    #src_path='/tmp/first/'
+    dest_path='second'
+    args.username='harcok'
+    args.password=r'd03j3b3st3gvhl!'
+    args.address='lilo5.science.ru.nl'
+# test end
+
+    print("Mirror")
+    base_mirror(args,src_path,dest_path)
+
+def cleanup(args):
+
+    # cleanup of homedir; other locations are not cleanable (because to dangerous)
+    # note: also removes subdirs in homedir
+    dest_path='/home/'+ args.username
+    import tempfile
+    src_path=tempfile.mkdtemp();
+
+
+
+# test begin
+    dest_path='second'
+    args.username='xharcok'
+    args.password=r'd03j3b3st3gvhl!'
+    args.address='lilo5.science.ru.nl'
+# test end
+
+    print("Cleanup")
+    base_mirror(args,src_path,dest_path)
+
+
+def install_rpyc_server(args):
+
+    print("install rpyc_server")
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-
-
-    print("add /usr/bin/brickmanrun")
-
-    ftp.put(os.path.join(dir_path,'ev3devcmd_res','brickmanrun'), '/tmp/brickmanrun')
-    ftp.chmod('/tmp/brickmanrun', 0o775)
-
-
-    ## next doesn't work, probably because use of pipe
-    # ssh.exec_command('echo maker | sudo -S mv /tmp/rpycd.service /etc/systemd/system/rpycd.service',get_pty=True)
-
-    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/brickmanrun /usr/bin/brickmanrun',get_pty=True)
-    stdin.write(args.password+'\n')
-    stdin.flush()
-
-    data = stdout.read().splitlines()
-    # for line in data:
-    #     print(line)
-
-    data = stderr.read().splitlines()
-    # for line in data:
-    #     print(line,file=sys.stderr)
 
     print("install rpyc-4.1.2 package on EV3 (can take 60 seconds)")
 
@@ -253,27 +438,6 @@ def patch(args):
     data = stderr.read().splitlines()
 
     stdin, stdout, stderr = ssh.exec_command('cd /tmp/rpyc-4.1.2/;sudo python3 setup.py install',get_pty=True)
-    stdin.write(args.password+'\n')
-    stdin.flush()
-    data = stdout.read().splitlines()
-    data = stderr.read().splitlines()
-
-    print("install ev3devlogging package on EV3")
-
-    ftp.put(ev3devlogging.__file__, '/tmp/ev3devlogging.py')
-
-    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devlogging.py /usr/lib/python3/dist-packages/ev3devlogging.py',get_pty=True)
-    stdin.write(args.password+'\n')
-    stdin.flush()
-    data = stdout.read().splitlines()
-    data = stderr.read().splitlines()
-
-    print("install ev3devcontext package on EV3")
-
-    #ftp.put(ev3devcontext.__file__, '/tmp/ev3devcontext.py')
-
-    #stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devcontext.py /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
-    stdin, stdout, stderr = ssh.exec_command('sudo truncate -s0 /usr/lib/python3/dist-packages/ev3devcontext.py',get_pty=True)
     stdin.write(args.password+'\n')
     stdin.flush()
     data = stdout.read().splitlines()
@@ -311,123 +475,28 @@ def patch(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
-
     print("\n\nfinished")
-
 
     ftp.close()
     ssh.close()
 
-
-
-def _remote_rpyc_stop_and_reset(soft_reset,credentials):
-
-    try:
-        ip=credentials.address
-        # rpyc.classic.connect has by default a timeout of 3  seconds (see rpyc.SocketStream.connect)
-        conn = rpyc.classic.connect(ip) # host name or IP address of the EV3
-    except socket.timeout as e:
-        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Or fix EV3 address in \"Tools > Options\" menu.")
-        sys.exit(1)
-
-
-    os= conn.modules['os']
-    sudoPassword='maker'
-
-
-    print("kill programs running on EV3")
-    # kill programs running on ev3
-    command="kill -9 -`pgrep -f 'python3 /home/robot'`"
-    # no sudo needed, program runs as user robot
-    os.system(command)
-
-    print("stop motors on EV3")
-    # kill motors
-    ev3= conn.modules['ev3dev.ev3']
-    for m in ev3.list_motors():
-        m.reset()
-
-    print("stop sound on EV3")
-    # kill sound via beep
-    command='pkill -f /usr/bin/aplay'
-    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-    # kill sound aplay
-    command='pkill -f /usr/bin/beep'
-    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-
-    print("set leds back to default of green")
-    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
-    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
-
-
-    if soft_reset:
-
-        print("restart brickman on EV3")
-        command='systemctl restart brickman'
-        os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-
-        print("restart rpycd server on EV3")
-        # restart rpycd server
-        # note: throws error because we use rpyc protocol to restart rpycd daemone
-        #      => gives:
-        #            raise EOFError("connection closed by peer")
-        #         when loosing rpyc connection
-        try:
-            command='systemctl restart rpycd'
-            os.system('echo %s|sudo -S %s' % (sudoPassword, command))
-        except EOFError:
-            pass
-        #rpyc_stop_in_background()
-
-    print("finished")
-
-
-
-
-def stop_ev3_programs__and__rpyc_motors_sound(args):
-    print("stop programs and motors/sound on EV3")
-    _remote_rpyc_stop_and_reset(False,args)
-
-
-def soft_reset_ev3(args):
-    print("soft reset the EV3")
-    _remote_rpyc_stop_and_reset(True,args)
-
-
-
-def cleanup(args):
-
-    # only allow cleanup of homedir; other operations to dangerous
-    # note: assumes no subdirs are in homedir, and if they are there, then the cleanup
-    #       prints an error when it fails in deleting an directory as an file
-    args.dir='/home/'+args.username + '/'
-
-    print("Cleanup")
+def install_ev3devlogging(args):
+    print("install ev3devlogging package on EV3")
     ssh=sshconnect(args)
     ftp = ssh.open_sftp()
 
-    try:
-        files=ftp.listdir(args.dir)
-    except IOError:
-        print("Failed to access directory  '{0}'.".format(args.dir),file=sys.stderr)
+    ftp.put(ev3devlogging.__file__, '/tmp/ev3devlogging.py')
 
-        ftp.close()
-        ssh.close()
-        sys.exit(1)
+    stdin, stdout, stderr = ssh.exec_command('sudo mv /tmp/ev3devlogging.py /usr/lib/python3/dist-packages/ev3devlogging.py',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    data = stderr.read().splitlines()
 
-    print("deleting files in '{0}':".format(args.dir))
-    for item in files:
-        if item[0]==".": continue
-
-        print("    delete " + args.dir + item)
-        try:
-           ftp.remove(args.dir + item)
-        except IOError:
-            print("    Failed to delete '{0}'.".format(args.dir + item),file=sys.stderr)
+    print("\n\nfinished")
 
     ftp.close()
     ssh.close()
-
 
 
 def main(argv=None):
@@ -468,6 +537,17 @@ def main(argv=None):
     parser_upload.add_argument('file', type=str,help="source path on pc; destination path on EV3 is /home/USERNAME/basename(file)")
     parser_upload.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
     parser_upload.set_defaults(func=upload)
+
+    # create the parser for the "mirror" command
+    #  mirrors everything from source directory into homedir on EV3
+    #  with the --delete option it also deletes everything in homedir on EV3 which was not in sourcedir (excluding . files in homedir)
+    # does : rsync -avuze ssh --exclude='/.*' --delete sourcedir/ <ip-ev3>:
+    parser_upload = subparsers.add_parser('mirror',help="upload file to homedir on EV3")
+
+    parser_upload.add_argument('srcdir', type=str,help="source directory on pc; destination path on EV3 is /home/USERNAME/")
+    parser_upload.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
+    parser_upload.set_defaults(func=upload)
+
     # create the parser for the "download" command
     parser_download = subparsers.add_parser('download',help='download file from homedir on EV3')
     parser_download.add_argument('file', type=str,help="destination path on pc; source path on EV3 is /home/USERNAME/basename(file)")
@@ -480,28 +560,28 @@ def main(argv=None):
     # create the parser for the "clean" command
     parser_clean = subparsers.add_parser('cleanup', help='delete all files in homedir on EV3')
     parser_clean.set_defaults(func=cleanup)
+    # create the parser for the "clean" command
+    parser_mirror = subparsers.add_parser('mirror', help='mirror sourcedir into homedir on EV3. Also subdirs are mirrored, and all other files within homedir but not in sourcedir are removed.')
+    parser_mirror.add_argument('sourcedir', type=str,help="source directory which gets mirrored.")
+    parser_mirror.set_defaults(func=mirror)
 
     # create the parser for the "start" command
     parser_start = subparsers.add_parser('start',help="run program on EV3; program must already be on EV3's homedir")
     parser_start.add_argument('file', type=str,help="program in EV3's homedir; directory of file is ignored")
     parser_start.set_defaults(func=start)
-    # create the parser for the "steer" command
-    parser_steer = subparsers.add_parser('steer',help="run program on PC remotely steering the EV3")
-    parser_steer.add_argument('file', type=str,help="EV3 program on pc")
-    parser_steer.set_defaults(func=steer)
-    # create the parser for the "stop" command
-    parser_sighup = subparsers.add_parser('stop', help="stop all programs on the EV3  (also rpyc started sound/motors)")
-    parser_sighup.set_defaults(func=stop_ev3_programs__and__rpyc_motors_sound)
-    
-    # create the parser for the "softreset" command
-    parser_sighup = subparsers.add_parser('softreset', help="soft reset the EV3  (stop programs,rpyc started sound/motors,restart brickman and rpycd service)")
-    parser_sighup.set_defaults(func=soft_reset_ev3)
 
-    # create the parser for the "install_additions" command
-    parser_patch = subparsers.add_parser('install_additions', help='install ev3dev additions on the EV3 when just having installed a newly installed ev3dev image')
-    parser_patch.set_defaults(func=patch)
+    # create the parser for the "killall" command
+    parser_killall = subparsers.add_parser('killall', help="stop/kill all programs and motors/sound on EV3")
+    parser_killall.set_defaults(func=killall)
 
 
+    # create the parser for the "install_ev3devlogging" command
+    parser_install_ev3devlogging = subparsers.add_parser('install_logging', help='install ev3devlogging package on the EV3 when just having installed a newly installed ev3dev image')
+    parser_install_ev3devlogging.set_defaults(func=install_ev3devlogging)
+
+    # create the parser for the "install_rpyc_server" command
+    parser_install_rpyc_server = subparsers.add_parser('install_rpyc_server', help='install rpyc server on the EV3 when just having installed a newly installed ev3dev image')
+    parser_install_rpyc_server.set_defaults(func=install_rpyc_server)
 
     # parse args,
     args=parser.parse_args(argv[1:])

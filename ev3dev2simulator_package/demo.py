@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import ev3devcontext
+
 
 from ev3devlogging import timedlog as log
 
