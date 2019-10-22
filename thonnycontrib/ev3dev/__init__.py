@@ -195,13 +195,6 @@ class MySubprocessDialog(tk.Toplevel):
 
 
 
-
-
-
-
-
-
-
 def print_error_in_backend(error_str):
     error_source='import sys; print("{}",file=sys.stderr)'.format(error_str)
     cmd=ToplevelCommand(command='execute_source', source=error_source)
@@ -305,26 +298,6 @@ def _handle_reload_from_shell(cmd_line):
             print_error_in_backend("failed to open")
     else:
         print_error_in_backend("Command 'open' takes one argument")
-
-
-
-def _handle_reset_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "Reset"
-
-    if len(args) == 0:
-        get_runner().send_command(ToplevelCommand(command="Reset"))
-
-        # # stop programmings running on ev3 and stop sound/motors via ssh
-        # stop_ev3_programs__and__rpyc_motors_sound()
-
-    else:
-        print_error_in_backend("Command 'Reset' doesn't take arguments")
-
-
-
-
-
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -535,8 +508,10 @@ def cleanup_files_on_ev3():
     env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=False)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=True)
     dlg.wait_window()
+    # dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=True)
+    # dlg.wait_window()
 
 
 def install_rpyc_server():
@@ -616,17 +591,6 @@ class Ev3ConfigurationPage(ConfigurationPage):
 
 
 
-def get_button_handler_for_magiccmd_on_current_file(magiccmd):
-    def button_handler_for_magiccmd_on_current_file():
-        # generate a magic command to submit to shell (shell will execute it)
-        get_runner().execute_current(magiccmd)
-
-        # hack to get a newline after magic command is done
-        if get_runner().get_state() == "waiting_toplevel_command":
-            get_workbench().get_view("ShellView").submit_command("\n")
-
-    return  button_handler_for_magiccmd_on_current_file
-
 def command_enabled():
     return  get_runner().get_state() == "waiting_toplevel_command"
 
@@ -636,32 +600,6 @@ def currentscript_and_command_enabled():
             and get_workbench().get_editor_notebook().get_current_editor().get_filename()
             and get_workbench().get_editor_notebook().get_current_editor().get_filename().endswith(".py")
             )
-
-def enabled():
-    return True
-
-
-
-# def rpyc_stop_in_background():
-#     def rpyc_stop_in_background__target():
-#         ev3devcmd.sighup(get_credentials())
-#
-#     t = Thread(target=rpyc_stop_in_background__target)
-#     t.start()
-
-
-
-# def stop_ev3_programs__and__rpyc_motors_sound():
-#
-#     credentials=get_credentials()
-#     t = Thread(target=ev3devcmd.killall,args=[credentials])
-#     t.start()
-
-
-
-
-
-
 
 
 def load_plugin():
@@ -699,7 +637,7 @@ def load_plugin():
                                 group=265,
                                 image_filename=image_path_simulator,
                                 include_in_toolbar=True)
- 
+
 
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
@@ -758,29 +696,16 @@ def load_plugin():
                                 include_in_toolbar=False)
 
 
-
-    # orig_interrupt_backend=get_runner().interrupt_backend
-    # def wrapped_interrupt_backend():
-    #
-    #     # kill program on pc
-    #     orig_interrupt_backend()
-    #
-    #     # stop programmings running on ev3 and stop sound/motors via rpyc
-    #     stop_ev3_programs__and__rpyc_motors_sound()
-    #
-    #
-    # get_runner().interrupt_backend = wrapped_interrupt_backend
-
-
-
     # magic commands
     shell = get_workbench().get_view("ShellView")
 
-    shell.add_command("Reset", _handle_reset_from_shell)
+    # next are local unix shell commands => obsolete in thonny3 which supports like ipython '!' to run local shell commands!
     shell.add_command("pwd", _handle_pwd_from_shell)
     shell.add_command("cd", _handle_cd_from_shell)
     shell.add_command("ls", _handle_ls_from_shell)
     shell.add_command("help", _handle_help_from_shell)
+
+    # open/reload python file from shell
     shell.add_command("open", _handle_open_from_shell)
     shell.add_command("reload", _handle_reload_from_shell)
 

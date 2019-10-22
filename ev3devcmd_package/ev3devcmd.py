@@ -167,58 +167,33 @@ def start(args):
 
 
 
-# requires ev3killall installed
 def killall(args):
 
     print("stop/kill all programs and motors/sound on EV3\n\n")
 
     ssh=sshconnect(args)
-    ftp = ssh.open_sftp()
     password=args.password
 
-    # if not file_exist_on_ev3(ftp,'/usr/bin/ev3killall'):
-    #     print("You need to install the EV3 additions to get the ev3killall command working.",file=sys.stderr)
-    #     ftp.close()
-    #     ssh.close()
-    #     sys.exit(1)
-
-
-
     try:
-        # stdin, stdout, stderr = ssh.exec_command('sudo /usr/bin/ev3killall',get_pty=True)
-        # stdin.write(args.password+'\n')
-        # stdin.flush()
 
+        # first quickly kill process, then do slower cleanup afterwards
+        print("kill program running on EV3\n")
+        ssh.exec_command("kill -9 -`pgrep -f 'python3 /home/robot'`")
+
+        # create interactive shell
         client_shell = ssh.invoke_shell()
         stdin = client_shell.makefile('wb')
         stdout = client_shell.makefile('rb')
 
-        # getting sudo rights
-        stdin.write('echo {}| sudo -S echo "getting sudo rights" &> /dev/null'.format(password))
-
-        # read from resource:
-        #
-        # dir_path = os.path.dirname(os.path.realpath(__file__))
-        # filepath=os.path.join(dir_path,'ev3devcmd_res','ev3killall.bash')
-        # with open(filepath,'r') as f:
-        #     shellcode=f.read()
-        #
-        # stdin.write(shellcode)
-        # stdin.flush()
-
+        print("stop motors running on EV3\n")
         stdin.write(r'''
-            printf "kill programs running on EV3\n"
-            # kill programs running on ev3
-            pid=`pgrep -f 'python3 /home/robot'`
-            if [[ -n $pid ]]
-            then 
-              kill -9 -$pid
-            fi
-            
-            printf "stop motors on EV3\n"
             # kill motors
             python3 -c "exec(\"import ev3dev.ev3\nfor m in ev3dev.ev3.list_motors():\n  m.reset()\")"
-            
+        ''')
+        stdin.flush()
+        # getting sudo rights
+        stdin.write('echo {}| sudo -S echo "getting sudo rights" &> /dev/null'.format(password))
+        stdin.write(r'''
             printf "stop sound on EV3\n"
             # kill sound via beep
             sudo  pkill -f /usr/bin/aplay
@@ -245,17 +220,13 @@ def killall(args):
                 print(line, end = '')
     except Exception as inst:
         print("Failed running /usr/bin/ev3killall on the EV3.",file=sys.stderr)
-        ftp.close()
         ssh.close()
         sys.exit(1)
 
     print("\n\nSuccesfully runned the command 'killall' on the EV3.")
-
-    ftp.close()
     ssh.close()
 
-    # quickly show in modal dialog in thonny before it exits
-    sleep(4)  # longer because start on ev3 anyway slow
+
 
 
 def download(args):
@@ -304,31 +275,31 @@ def download(args):
 
 def listfiles(args):
 
+     # tree -F
+
     if args.dir=='/home/USERNAME':
         args.dir='/home/'+args.username
 
-    print("List files in '{0}'".format(args.dir))
+    print("List files in '{0}':\n".format(args.dir))
 
     ssh=sshconnect(args)
-    ftp = ssh.open_sftp()
 
-    try:
-        files=ftp.listdir(args.dir)
-    except IOError:
-        print("Failed to list '{0}'.".format(args.dir),file=sys.stderr)
+    stdin, stdout, stderr = ssh.exec_command('tree -nF',get_pty=True)
+    stdin.write(args.password+'\n')
+    stdin.flush()
+    data = stdout.read().splitlines()
+    for line in data:
+        line = str(line, 'utf-8')
+        if not args.password in line:
+           print(line)
+    data = stderr.read().splitlines()
+    for line in data:
+         print(str(line, 'utf-8'),file=sys.stderr)
 
-        ftp.close()
-        ssh.close()
-        sys.exit(1)
 
-
-    ftp.close()
     ssh.close()
 
-    print("files in '{0}':".format(args.dir))
-    for item in files:
-        if item[0]==".": continue
-        print("    " + item)
+
 
 
 def delete(args):
@@ -349,8 +320,9 @@ def delete(args):
 
 
 
-# mirror
-#--------
+# base mirror of a sourcedir into homedir which preserves . files in homedir
+#----------------------------------------------------------------------------
+# note: base mirror removes all files not in sourcedir from homedir (except . files in homedir)
 
 orig_remove = None
 base_remote_path = None
@@ -368,15 +340,27 @@ def new_remove(remote_path):
 
 def base_mirror(args,local_path,dest_path):
 
-    # do extra connect  only for nice error message in case of failure
+
+
+    # do extra connect  only for nice error message in case of failure (don't want to hack sftpclone library for that)
     ssh=sshconnect(args)
 
     remote_url=r'{username}:{password}@{server}:{dest_dir}'.format(username=args.username, password=args.password,server=args.address,dest_dir=dest_path)
 
+    # disable the default of DEBUG logging into CRITICAL only logging
     import logging
     sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
-    #sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.DEBUG)
     sync = sftpclone.sftpclone.SFTPClone(local_path,remote_url)
+
+    # exclude from syncing the files and dirs in root of sourcedir which start with '.'
+    import glob
+    # expand local path to real path  => important for getting paths right in exclude list which is compared with the realpath
+    # note: within sftpclone paths give are also converted to real paths
+    local_path = os.path.realpath(os.path.expanduser(local_path))
+    sync.exclude_list = {
+        g
+        for g in glob.glob(sftpclone.sftpclone.path_join(local_path, ".*"))
+    }
 
     global orig_remove
     global base_remote_path
@@ -388,22 +372,20 @@ def base_mirror(args,local_path,dest_path):
     sync.run()
 
 
+
+#  mirror and cleanup ; implemented using base_mirror
+#----------------------------------------------------
+
+
 def mirror(args):
 
-    # ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
     src_path=args.sourcedir
     dest_path='/home/'+ args.username
 
-# test begin
-    #src_path='/tmp/first/'
-    dest_path='second'
-    args.username='xharcok'
-    args.password=r'd03j3b3st3gvhl!'
-    args.address='lilo6.science.ru.nl'
-# test end
-
     print("Mirror")
     base_mirror(args,src_path,dest_path)
+    print("\n\nmirror succesfull")
+    sleep(1)
 
 def cleanup(args):
 
@@ -413,18 +395,10 @@ def cleanup(args):
     import tempfile
     src_path=tempfile.mkdtemp();
 
-
-
-# test begin
-    dest_path='second'
-    args.username='harcok'
-    args.password=r'd03j3b3st3gvhl!'
-    args.address='lilo.science.ru.nl'
-    #args.address='192.168.0.1'
-# test end
-
     print("Cleanup")
     base_mirror(args,src_path,dest_path)
+    print("\n\ncleanup succesfull")
+    sleep(1)
 
 
 def install_rpyc_server(args):

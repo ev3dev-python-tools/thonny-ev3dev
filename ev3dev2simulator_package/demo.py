@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-
-
 from ev3devlogging import timedlog as log
 
 from ev3dev2._platform.ev3 import INPUT_1, INPUT_4, INPUT_2, INPUT_3
@@ -10,8 +8,6 @@ from ev3dev2.sensor.lego import TouchSensor
 from ev3dev2.sensor.lego import UltrasonicSensor
 from ev3dev2.sound import Sound
 
-
-# !/usr/bin/env python3
 
 class Runner:
 
