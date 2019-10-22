@@ -357,7 +357,7 @@ def base_mirror(args,local_path,dest_path):
 
     # disable the default of DEBUG logging into CRITICAL only logging
     import logging
-    #sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
+    sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
     sync = sftpclone.sftpclone.SFTPClone(local_path,remote_url)
 
     # exclude from syncing the files and dirs in root of sourcedir which start with '.'

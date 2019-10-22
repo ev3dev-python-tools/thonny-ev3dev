@@ -44,5 +44,5 @@ For more info: https://www.github.com/harcokuppens/thonny-ev3dev/wiki/ev3devlogg
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
       #install_requires=['logging'],  # logging in standard distribution
-      py_modules=["ev3devlogging"]
+      py_modules=["ev3devlogging==0.38"]
 )
