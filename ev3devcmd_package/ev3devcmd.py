@@ -365,10 +365,17 @@ def base_mirror(args,local_path,dest_path):
     # expand local path to real path  => important for getting paths right in exclude list which is compared with the realpath
     # note: within sftpclone paths give are also converted to real paths
     local_path = os.path.realpath(os.path.expanduser(local_path))
+
+    # exclude files/dirs in root of sourcedir starting with '.'
     sync.exclude_list = {
         g
         for g in glob.glob(sftpclone.sftpclone.path_join(local_path, ".*"))
     }
+
+    # exclude directories named __pycache__
+    from pathlib import Path
+    for item in Path('.').glob( '**/__pycache__'):
+        sync.exclude_list.add(os.path.join(local_path,item))
 
     global orig_remove
     global base_remote_path
