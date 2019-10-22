@@ -30,6 +30,10 @@ def sshconnect(args):
     except paramiko.ssh_exception.AuthenticationException as e:
         print("\nProblem: failed connecting with EV3: authentication failed.\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
         sys.exit(1)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
     return ssh
 
 
@@ -364,6 +368,9 @@ def new_remove(remote_path):
 
 def base_mirror(args,local_path,dest_path):
 
+    # do extra connect  only for nice error message in case of failure
+    ssh=sshconnect(args)
+
     remote_url=r'{username}:{password}@{server}:{dest_dir}'.format(username=args.username, password=args.password,server=args.address,dest_dir=dest_path)
 
     import logging
@@ -390,9 +397,9 @@ def mirror(args):
 # test begin
     #src_path='/tmp/first/'
     dest_path='second'
-    args.username='harcok'
+    args.username='xharcok'
     args.password=r'd03j3b3st3gvhl!'
-    args.address='lilo5.science.ru.nl'
+    args.address='lilo6.science.ru.nl'
 # test end
 
     print("Mirror")
@@ -410,9 +417,10 @@ def cleanup(args):
 
 # test begin
     dest_path='second'
-    args.username='xharcok'
+    args.username='harcok'
     args.password=r'd03j3b3st3gvhl!'
-    args.address='lilo5.science.ru.nl'
+    args.address='lilo.science.ru.nl'
+    #args.address='192.168.0.1'
 # test end
 
     print("Cleanup")

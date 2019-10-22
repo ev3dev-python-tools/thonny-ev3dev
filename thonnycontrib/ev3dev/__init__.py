@@ -315,8 +315,8 @@ def _handle_reset_from_shell(cmd_line):
     if len(args) == 0:
         get_runner().send_command(ToplevelCommand(command="Reset"))
 
-        # stop programmings running on ev3 and stop sound/motors via ssh
-        stop_ev3_programs__and__rpyc_motors_sound()
+        # # stop programmings running on ev3 and stop sound/motors via ssh
+        # stop_ev3_programs__and__rpyc_motors_sound()
 
     else:
         print_error_in_backend("Command 'Reset' doesn't take arguments")
@@ -364,6 +364,7 @@ def upload(file=None):
     dlg.wait_window()
 
 
+
 def run_simulator():
 
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator.Simulator']
@@ -403,6 +404,21 @@ def upload_current_script():
         showerror("Error", error_msg)
 
 
+def stop_ev3_programs__and__rpyc_motors_sound():
+
+    # credentials=get_credentials()
+    # t = Thread(target=ev3devcmd.killall,args=[credentials])
+    # t.start()
+
+    list = get_base_ev3dev_cmd() + ['killall']
+
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Stop/kill all programs and motors/sound on EV3", autoclose=True)
+    dlg.wait_window()
+
 
 def start(file=None):
     """ Starts given .py file on the EV3.
@@ -422,6 +438,8 @@ def start(file=None):
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Start program on EV3", autoclose=True)
     dlg.wait_window()
+
+
 
 
 def start_current_script():
@@ -633,11 +651,11 @@ def enabled():
 
 
 
-def stop_ev3_programs__and__rpyc_motors_sound():
-
-    credentials=get_credentials()
-    t = Thread(target=ev3devcmd.killall,args=[credentials])
-    t.start()
+# def stop_ev3_programs__and__rpyc_motors_sound():
+#
+#     credentials=get_credentials()
+#     t = Thread(target=ev3devcmd.killall,args=[credentials])
+#     t.start()
 
 
 
@@ -659,13 +677,12 @@ def load_plugin():
 
     # icons
 
-    image_path_remoterun = os.path.join(os.path.dirname(__file__), "res", "remoterun.gif")
-    image_path_remotedebug = os.path.join(os.path.dirname(__file__), "res", "remotedebug.gif")
-
     image_path_simulator = os.path.join(os.path.dirname(__file__), "res", "simulator.gif")
+
     image_path_upload = os.path.join(os.path.dirname(__file__), "res", "up.gif")
     image_path_run = os.path.join(os.path.dirname(__file__), "res", "flash.gif")
     image_path_log = os.path.join(os.path.dirname(__file__), "res", "log.gif")
+    image_path_killall = os.path.join(os.path.dirname(__file__), "res", "killall.gif")
 
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
 
@@ -675,36 +692,15 @@ def load_plugin():
 
     # menu buttons
 
-    # get_workbench().add_command("ev3remoterun", "run", "Run current script using the EV3 API in remote control mode" ,
-    #                             get_button_handler_for_magiccmd_on_current_file("Ev3RemoteRun"),
-    #                             currentscript_and_command_enabled,
-    #                             default_sequence="<F9>",
-    #                             group=20,
-    #                             image_filename=image_path_remoterun,
-    #                             include_in_toolbar=True)
-    # get_workbench().add_command("ev3remotedebug", "run", "Debug current script using the EV3 API in remote control mode" ,
-    #                             get_button_handler_for_magiccmd_on_current_file("Ev3RemoteDebug"),
-    #                             currentscript_and_command_enabled,
-    #                             default_sequence="<Control-F9>",
-    #                             group=20,
-    #                             image_filename=image_path_remotedebug,
-    #                             include_in_toolbar=True)
+    get_workbench().add_command("ev3runsim", "tools", "Run simulator of EV3",
+                                run_simulator,
+                                currentscript_and_command_enabled,
+                                default_sequence="<F4>",
+                                group=265,
+                                image_filename=image_path_simulator,
+                                include_in_toolbar=True)
 
-    get_workbench().add_command("ev3_install_logging", "tools", "Install ev3devlogging package to the EV3.",
-                                install_logging,
-                                command_enabled,
-                                default_sequence=None,
-                                group=270,
-                                #image_filename=image_path_upload,
-                                include_in_toolbar=False)
 
-    get_workbench().add_command("ev3_install_rpyc_server", "tools", "Install rpyc server on the EV3. The server is immediately started after installation.",
-                                install_rpyc_server,
-                                command_enabled,
-                                default_sequence=None,
-                                group=270,
-                                #image_filename=image_path_upload,
-                                include_in_toolbar=False)
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
                                 upload_current_script,
@@ -719,6 +715,13 @@ def load_plugin():
                                 default_sequence="<Control-F10>",
                                 group=280,
                                 image_filename=image_path_run,
+                                include_in_toolbar=True)
+    get_workbench().add_command("ev3killall", "tools", "Stop/kill all programs and motors/sound on EV3",
+                                stop_ev3_programs__and__rpyc_motors_sound,
+                                currentscript_and_command_enabled,
+                                default_sequence="<Control-F11>",
+                                group=280,
+                                image_filename=image_path_killall,
                                 include_in_toolbar=True)
     get_workbench().add_command("ev3log", "tools", "Download log of current script from EV3",
                                 download_log_of_current_script,
@@ -736,25 +739,37 @@ def load_plugin():
                                 image_filename=image_path_clean,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3runsim", "tools", "Run simulator of EV3",
-                                run_simulator,
-                                currentscript_and_command_enabled,
-                                default_sequence="<F4>",
-                                group=295,
-                                image_filename=image_path_simulator,
-                                include_in_toolbar=True)
+    # menu items
 
-    orig_interrupt_backend=get_runner().interrupt_backend
-    def wrapped_interrupt_backend():
+    get_workbench().add_command("ev3_install_logging", "tools", "Install ev3devlogging package to the EV3.",
+                                install_logging,
+                                command_enabled,
+                                default_sequence=None,
+                                group=270,
+                                #image_filename=image_path_upload,
+                                include_in_toolbar=False)
 
-        # kill program on pc
-        orig_interrupt_backend()
+    get_workbench().add_command("ev3_install_rpyc_server", "tools", "Install rpyc server on the EV3. The server is immediately started after installation.",
+                                install_rpyc_server,
+                                command_enabled,
+                                default_sequence=None,
+                                group=270,
+                                #image_filename=image_path_upload,
+                                include_in_toolbar=False)
 
-        # stop programmings running on ev3 and stop sound/motors via rpyc
-        stop_ev3_programs__and__rpyc_motors_sound()
 
 
-    get_runner().interrupt_backend = wrapped_interrupt_backend
+    # orig_interrupt_backend=get_runner().interrupt_backend
+    # def wrapped_interrupt_backend():
+    #
+    #     # kill program on pc
+    #     orig_interrupt_backend()
+    #
+    #     # stop programmings running on ev3 and stop sound/motors via rpyc
+    #     stop_ev3_programs__and__rpyc_motors_sound()
+    #
+    #
+    # get_runner().interrupt_backend = wrapped_interrupt_backend
 
 
 
