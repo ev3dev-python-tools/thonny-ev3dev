@@ -699,7 +699,7 @@ def load_plugin():
                                 group=265,
                                 image_filename=image_path_simulator,
                                 include_in_toolbar=True)
-
+ 
 
 
     get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",

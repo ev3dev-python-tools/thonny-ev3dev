@@ -1,3 +1,4 @@
+mkdir -p pypi
 
 d=thonny-ev3dev
 printf "\n$d\n----------------------\n"
