@@ -323,7 +323,7 @@ def delete(args):
 # base mirror of a sourcedir into homedir which preserves . files in homedir
 #----------------------------------------------------------------------------
 # note: base mirror removes all files not in sourcedir from homedir (except . files in homedir)
-
+orig_rmdir = None
 orig_remove = None
 base_remote_path = None
 
@@ -336,6 +336,14 @@ def new_remove(remote_path):
 
     orig_remove(remote_path)
 
+def new_rmdir(remote_path):
+    global orig_rmdir
+    global base_remote_path
+    if remote_path.startswith( os.path.join(base_remote_path,".") ):
+        #print("skip delete: " + remote_path)
+        return
+
+    orig_rmdir(remote_path)
 
 
 def base_mirror(args,local_path,dest_path):
@@ -349,7 +357,7 @@ def base_mirror(args,local_path,dest_path):
 
     # disable the default of DEBUG logging into CRITICAL only logging
     import logging
-    sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
+    #sftpclone.sftpclone.logger = sftpclone.sftpclone.configure_logging(level=logging.CRITICAL)
     sync = sftpclone.sftpclone.SFTPClone(local_path,remote_url)
 
     # exclude from syncing the files and dirs in root of sourcedir which start with '.'
@@ -366,8 +374,15 @@ def base_mirror(args,local_path,dest_path):
     global base_remote_path
     base_remote_path=sync.remote_path
 
+    global orig_rmdir
+
+    #sftp.remove
     orig_remove=sync.sftp.remove
     sync.sftp.remove=new_remove
+
+    #sftp.rmdir
+    orig_rmdir=sync.sftp.rmdir
+    sync.sftp.rmdir=new_rmdir
 
     sync.run()
 
@@ -393,7 +408,7 @@ def cleanup(args):
     # note: also removes subdirs in homedir
     dest_path='/home/'+ args.username
     import tempfile
-    src_path=tempfile.mkdtemp();
+    src_path=tempfile.mkdtemp()
 
     print("Cleanup")
     base_mirror(args,src_path,dest_path)
