@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devrpyc",
-      version="0.38",
+      version="0.39",
       description="Transform ev3dev(2) api into a remoted proxied api using rpyc",
       long_description="""
 Transform ev3dev(2) api into a remoted proxied api using rpyc.      

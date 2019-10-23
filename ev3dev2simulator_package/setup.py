@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3dev2simulator",
-      version="0.38",
+      version="0.39",
       description="ev3 simulator for ev3dev2 library",
       long_description="""
 ev3 simulator for ev3dev2 library
@@ -43,7 +43,8 @@ For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3dev2simulat
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
-      install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk','dataclasses'],
+      #install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk','dataclasses'],
+      install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk'],
       packages=find_packages(),
       include_package_data=True,
 

@@ -542,15 +542,6 @@ def main(argv=None):
     parser_upload.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
     parser_upload.set_defaults(func=upload)
 
-    # create the parser for the "mirror" command
-    #  mirrors everything from source directory into homedir on EV3
-    #  with the --delete option it also deletes everything in homedir on EV3 which was not in sourcedir (excluding . files in homedir)
-    # does : rsync -avuze ssh --exclude='/.*' --delete sourcedir/ <ip-ev3>:
-    parser_upload = subparsers.add_parser('mirror',help="upload file to homedir on EV3")
-
-    parser_upload.add_argument('srcdir', type=str,help="source directory on pc; destination path on EV3 is /home/USERNAME/")
-    parser_upload.add_argument('-f', '--force',action='store_true',help="overwrite file if already exist")
-    parser_upload.set_defaults(func=upload)
 
     # create the parser for the "download" command
     parser_download = subparsers.add_parser('download',help='download file from homedir on EV3')

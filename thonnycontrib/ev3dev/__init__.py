@@ -1,61 +1,45 @@
-from thonny.globals import get_workbench
-from tkinter.messagebox import showerror
-from thonny.ui_utils import SubprocessDialog
-from thonny import THONNY_USER_BASE
-
-from threading import Thread
-
-
-from thonny.globals import register_runner, get_runner
-
-from thonny.misc_utils import running_on_mac_os, running_on_windows, running_on_linux
-
-from thonny.config_ui import ConfigurationPage
-from thonny.ui_utils import create_string_var
-
-from tkinter import ttk, messagebox
-from tkinter.dialog import Dialog
-
-from thonny import tktextext, misc_utils
-from thonny.globals import get_workbench
-from thonny.misc_utils import running_on_mac_os, running_on_windows, running_on_linux
+import ast
+import collections
+import os
+import signal
+import subprocess
+import threading
 import tkinter as tk
 import tkinter.messagebox as tkMessageBox
 import traceback
+from tkinter import ttk
+from tkinter.messagebox import showerror
 
-import signal
-import ast
-import re
-import subprocess
 import sys
-import traceback
-import jedi
-import os
-import textwrap
 
-import tokenize
-
-import ev3devcmd
-
+from thonny import get_runner, tktextext
+from thonny import get_workbench
+from thonny.config_ui import ConfigurationPage
+from thonny.misc_utils import running_on_mac_os, running_on_windows
+from thonny.ui_utils import SubprocessDialog, center_window
+from thonny.ui_utils import create_string_var
 
 
-
-from thonny.common import serialize_message, ToplevelCommand, \
-    InlineCommand, parse_shell_command, \
-    CommandSyntaxError, parse_message, DebuggerCommand, InputSubmission, \
-    UserError
+#MySubprocessDialog = SubprocessDialog
 
 
+def get_main_background():
+    main_background_option = get_workbench().get_option("theme.main_background")
+    if main_background_option is not None:
+        return main_background_option
+    else:
+        theme = ttk.Style().theme_use()
 
+        if theme == "Enhanced Clam":
+            return "#dcdad5"
+        elif theme == "aqua":
+            return "systemSheetBackground"
+        else:
+            return "SystemButtonFace"
 
-import collections
-import threading
-from thonny.ui_utils import get_main_background, center_window
-
-
-# improved  SubprocessDialog from thonny/ui_utils.py
-# 1. fix printing error code in _start_listening
-# 2. removed confirmation messagebox for canceling in _close
+# # improved  SubprocessDialog from thonny/ui_utils.py
+# # 1. fix printing error code in _start_listening
+# # 2. removed confirmation messagebox for canceling in _close
 class MySubprocessDialog(tk.Toplevel):
     """Shows incrementally the output of given subprocess.
     Allows cancelling"""
@@ -101,7 +85,7 @@ class MySubprocessDialog(tk.Toplevel):
 
 
         self.title(title)
-        if misc_utils.running_on_mac_os():
+        if running_on_mac_os():
             self.configure(background="systemSheetBackground")
         #self.resizable(height=tk.FALSE, width=tk.FALSE)
         self.transient(master)
@@ -193,112 +177,6 @@ class MySubprocessDialog(tk.Toplevel):
             self.destroy()
 
 
-
-
-def print_error_in_backend(error_str):
-    error_source='import sys; print("{}",file=sys.stderr)'.format(error_str)
-    cmd=ToplevelCommand(command='execute_source', source=error_source)
-    get_runner().send_command(cmd)
-
-
-
-
-
-def set_focus_on_shell_after_delay():
-    def focusback():
-        from time import sleep
-        sleep(0.1)
-        get_workbench().get_view("ShellView").focus_set()
-
-    t = Thread(target=focusback)
-    t.start()
-
-def _handle_cd_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "cd"
-
-    if len(args) == 0:
-        cmd=ToplevelCommand(command='execute_source', source='import os;from pathlib import Path;home = str(Path.home());os.chdir(home);print("changed to home directory: " + home)')
-        get_runner().send_command(cmd)
-    else:
-       get_runner().send_command(ToplevelCommand(command="cd", path=args[0]))
-
-def _handle_pwd_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "pwd"
-
-    if len(args) == 0:
-        cmd=ToplevelCommand(command='execute_source', source='import os;print(os.getcwd())')
-        get_runner().send_command(cmd)
-    else:
-        print_error_in_backend("Command 'pwd' doesn't take arguments")
-
-
-def _handle_help_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "help"
-
-
-    magic_cmds=get_workbench().get_view("ShellView").text._command_handlers.keys()
-    help_msg="magic commands:\\n" + "\\n".join(map(lambda cmd: "    %"+cmd,magic_cmds))
-    help_source="print('"+help_msg+"')"
-    cmd=ToplevelCommand(command='execute_source', source=help_source)
-    get_runner().send_command(cmd)
-
-
-def _handle_ls_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "ls"
-
-
-    if len(args) == 0:
-        ls_source='import os; print("\\n".join( sorted(map(lambda item: str(item.name) if (item.is_file()) else str(item.name)+"/" , filter(lambda item:  ( not item.name.startswith(".") ) and ( item.is_dir() or item.name.endswith(".py") or item.name.endswith(".log"))     , os.scandir())   )) ))'
-        cmd=ToplevelCommand(command='execute_source', source=ls_source)
-        get_runner().send_command(cmd)
-    else:
-        print_error_in_backend("Command 'ls' doesn't take arguments")
-
-
-
-def _handle_open_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "open"
-
-    if len(args) == 1:
-        try:
-            cwd=get_runner().get_cwd()
-            # open file, and to open that window tab viewable it must get focus
-            open_file(args[0],cwd)
-            # hack to make new prompt to appear
-            cmd=ToplevelCommand(command='execute_source', source='')
-            get_runner().send_command(cmd)
-            # directly setting focus on shell back doesn't work so we use a delay
-            set_focus_on_shell_after_delay()
-        except FileNotFoundError:
-            print_error_in_backend("failed to open")
-    else:
-        print_error_in_backend("Command 'open' takes one argument")
-
-def _handle_reload_from_shell(cmd_line):
-    command, args = parse_shell_command(cmd_line)
-    assert command == "reload"
-
-    if len(args) == 1:
-        try:
-            cwd=get_runner().get_cwd()
-            # open file, and to open that window tab viewable it must get focus
-            #  => using forced reloading if file already open => no dialog shown, even if there are local changes
-            open_file(args[0],cwd,True)
-            # hack to make new prompt to appear
-            cmd=ToplevelCommand(command='execute_source', source='')
-            get_runner().send_command(cmd)
-            # directly setting focus on shell back doesn't work so we use a delay
-            set_focus_on_shell_after_delay()
-        except FileNotFoundError:
-            print_error_in_backend("failed to open")
-    else:
-        print_error_in_backend("Command 'open' takes one argument")
-
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
@@ -330,7 +208,7 @@ def upload(file=None):
     list = get_base_ev3dev_cmd() + ['upload','--force', file]
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
@@ -341,12 +219,10 @@ def upload(file=None):
 def run_simulator():
 
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator.Simulator']
+    print(list)
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
-    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            universal_newlines=True, env=env)
-
-
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
+    #os.system("/Applications/Thonny-3.2.1.app/Contents/Frameworks/Python.framework/Versions/3.7/bin/python3.7 -m ev3dev2simulator.Simulator")
 
 def upload_current_script():
     """upload current python script to EV3"""
@@ -386,7 +262,7 @@ def stop_ev3_programs__and__rpyc_motors_sound():
     list = get_base_ev3dev_cmd() + ['killall']
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Stop/kill all programs and motors/sound on EV3", autoclose=True)
@@ -406,7 +282,7 @@ def start(file=None):
 
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Start program on EV3", autoclose=True)
@@ -422,7 +298,7 @@ def start_current_script():
     try:
         ast.parse(code)
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
-        py_file = get_workbench().get_current_editor().save_file(False)
+        py_file = current_editor.save_file(False)
         if py_file is None:
             return
         start(py_file)
@@ -445,7 +321,7 @@ def download_log(currentfile=None):
     list.append(currentfile)
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Downloading log of program from EV3", autoclose=True)
@@ -491,7 +367,8 @@ def download_log_of_current_script():
 
     try:
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
-        src_file = get_workbench().get_current_editor().get_filename(False)
+        current_editor = get_workbench().get_editor_notebook().get_current_editor()
+        src_file = current_editor.get_filename(False)
         if src_file is None:
             return
         download_log(src_file)
@@ -505,7 +382,7 @@ def cleanup_files_on_ev3():
     list = get_base_ev3dev_cmd() + ['cleanup']
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=True)
@@ -519,7 +396,7 @@ def install_rpyc_server():
     list = get_base_ev3dev_cmd() + ['install_rpyc_server']
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
 
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
@@ -533,7 +410,7 @@ def install_logging():
     list = get_base_ev3dev_cmd() + ['install_logging']
 
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = THONNY_USER_BASE
+    #env["PYTHONUSERBASE"] = THONNY_USER_BASE
 
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
@@ -610,7 +487,8 @@ def load_plugin():
     workbench.set_default("ev3.ip", "192.168.0.1")
     workbench.set_default("ev3.username", "robot")
     workbench.set_default("ev3.password", "maker")
-    workbench.add_configuration_page("EV3", Ev3ConfigurationPage)
+
+    workbench.add_configuration_page(key="EV3",title="EV3", page_class=Ev3ConfigurationPage,order=1)
 
 
     # icons
@@ -624,90 +502,123 @@ def load_plugin():
 
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
 
-
-
-
+    # def add_command(
+    #         self,
+    #         command_id: str,
+    #         menu_name: str,
+    #         command_label: str,
+    #         handler: Optional[Callable[[], None]] = None,
+    #         tester: Optional[Callable[[], bool]] = None,
+    #         default_sequence: Optional[str] = None,
+    #         extra_sequences: Sequence[str] = [],
+    #         flag_name: Optional[str] = None,
+    #         skip_sequence_binding: bool = False,
+    #         accelerator: Optional[str] = None,
+    #         group: int = 99,
+    #         position_in_group="end",
+    #         image: Optional[str] = None,
+    #         caption: Optional[str] = None,
+    #         alternative_caption: Optional[str] = None,
+    #         include_in_menu: bool = True,
+    #         include_in_toolbar: bool = False,
+    #         submenu: Optional[tk.Menu] = None,
+    #         bell_when_denied: bool = True,
+    #         show_extra_sequences=False,
+    # ) -> None:
 
     # menu buttons
 
-    get_workbench().add_command("ev3runsim", "tools", "Run simulator of EV3",
-                                run_simulator,
-                                currentscript_and_command_enabled,
+    get_workbench().add_command(command_id="ev3runsim",
+                                menu_name="tools",
+                                command_label="Run simulator of EV3",
+                                caption="Run simulator of EV3",
+                                handler=run_simulator,
+                               # tester=command_enabled,
                                 default_sequence="<F4>",
                                 group=265,
-                                image_filename=image_path_simulator,
+                                image=image_path_simulator,
                                 include_in_toolbar=True)
 
 
-
-    get_workbench().add_command("ev3upload", "tools", "Upload current script to EV3",
-                                upload_current_script,
-                                currentscript_and_command_enabled,
+    get_workbench().add_command(command_id="ev3upload",
+                                menu_name="tools",
+                                command_label="Upload current script to EV3",
+                                handler=upload_current_script,
+                                tester=currentscript_and_command_enabled,
                                 default_sequence="<F10>",
                                 group=280,
-                                image_filename=image_path_upload,
-                                include_in_toolbar=True)
-    get_workbench().add_command("ev3run", "tools", "Start current script on the EV3",
-                                start_current_script,
-                                currentscript_and_command_enabled,
-                                default_sequence="<Control-F10>",
-                                group=280,
-                                image_filename=image_path_run,
-                                include_in_toolbar=True)
-    get_workbench().add_command("ev3killall", "tools", "Stop/kill all programs and motors/sound on EV3",
-                                stop_ev3_programs__and__rpyc_motors_sound,
-                                currentscript_and_command_enabled,
-                                default_sequence="<Control-F11>",
-                                group=280,
-                                image_filename=image_path_killall,
-                                include_in_toolbar=True)
-    get_workbench().add_command("ev3log", "tools", "Download log of current script from EV3",
-                                download_log_of_current_script,
-                                currentscript_and_command_enabled,
-                                default_sequence=None,
-                                group=280,
-                                image_filename=image_path_log,
+                                caption="Upload current script to EV3",
+                                image=image_path_upload,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command("ev3clean", "tools", "Cleanup EV3 by deleting all files stored in homedir on EV3",
-                                cleanup_files_on_ev3,
-                                command_enabled,
+    get_workbench().add_command(command_id="ev3run",
+                                menu_name="tools",
+                                command_label="Start current script on the EV3",
+                                caption="Start current script on the EV3",
+                                handler=start_current_script,
+                                tester=currentscript_and_command_enabled,
+                                default_sequence="<Control-F10>",
+                                group=280,
+                                image=image_path_run,
+                                include_in_toolbar=True)
+
+
+    get_workbench().add_command(command_id="ev3log",
+                                menu_name="tools",
+                                command_label="Download log of current script from EV3",
+                                caption="Download log of current script from EV3",
+                                handler=download_log_of_current_script,
+                                tester=currentscript_and_command_enabled,
+                                default_sequence=None,
+                                group=280,
+                                image=image_path_log,
+                                include_in_toolbar=True)
+
+
+    get_workbench().add_command(command_id="ev3killall",
+                                menu_name="tools",
+                                command_label="Stop/kill all programs and motors/sound on EV3",
+                                caption="Stop/kill all programs and motors/sound on EV3",
+                                handler=stop_ev3_programs__and__rpyc_motors_sound,
+                                #tester=currentscript_and_command_enabled,
+                                default_sequence="<Control-F11>",
+                                group=290,
+                                image=image_path_killall,
+                                include_in_toolbar=True)
+
+    get_workbench().add_command(command_id="ev3clean",
+                                menu_name="tools",
+                                command_label="Cleanup EV3 by deleting all files stored in homedir on EV3",
+                                caption="Cleanup EV3 by deleting all files stored in homedir on EV3",
+                                handler=cleanup_files_on_ev3,
+                                #tester=command_enabled,
                                 default_sequence=None,
                                 group=290,
-                                image_filename=image_path_clean,
+                                image=image_path_clean,
                                 include_in_toolbar=True)
 
     # menu items
 
-    get_workbench().add_command("ev3_install_logging", "tools", "Install ev3devlogging package to the EV3.",
-                                install_logging,
-                                command_enabled,
-                                default_sequence=None,
+    get_workbench().add_command(command_id="ev3_install_logging",
+                                menu_name="tools",
+                                command_label="Install ev3devlogging package to the EV3.",
+                                caption="Install ev3devlogging package to the EV3.",
+                                handler=install_logging,
+                                tester=command_enabled,
                                 group=270,
-                                #image_filename=image_path_upload,
                                 include_in_toolbar=False)
 
-    get_workbench().add_command("ev3_install_rpyc_server", "tools", "Install rpyc server on the EV3. The server is immediately started after installation.",
-                                install_rpyc_server,
-                                command_enabled,
-                                default_sequence=None,
+    get_workbench().add_command(command_id="ev3_install_rpyc_server",
+                                menu_name="tools",
+                                command_label="Install rpyc server on the EV3. The server is immediately started after installation.",
+                                caption="Install rpyc server on the EV3. The server is immediately started after installation.",
+                                handler=install_rpyc_server,
+                                tester=command_enabled,
                                 group=270,
-                                #image_filename=image_path_upload,
                                 include_in_toolbar=False)
 
 
-    # magic commands
-    shell = get_workbench().get_view("ShellView")
 
-    # next are local unix shell commands => obsolete in thonny3 which supports like ipython '!' to run local shell commands!
-    shell.add_command("pwd", _handle_pwd_from_shell)
-    shell.add_command("cd", _handle_cd_from_shell)
-    shell.add_command("ls", _handle_ls_from_shell)
-    shell.add_command("help", _handle_help_from_shell)
-
-    # open/reload python file from shell
-    shell.add_command("open", _handle_open_from_shell)
-    shell.add_command("reload", _handle_reload_from_shell)
 
 
 

@@ -5,7 +5,7 @@ import sys
 
 setup(
       name="ev3devlogging",
-      version="0.38",
+      version="0.39",
       description="easy logging library for ev3dev",
       long_description="""
 easy logging library for ev3dev
