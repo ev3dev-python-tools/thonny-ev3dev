@@ -1,0 +1,22 @@
+
+0.39  
+ - moved from thonny2 to thonny3 
+
+0.38.1
+ - added exclusion of mirroring __pycache__ folders
+
+0.38 
+ - removed ev3devcontext library; on pc use ev3dev api from simulator, on ev3
+   use the official ev3dev api. 
+ - If you import the ev3devrpyc library then we can still use remote steering mode. 
+ - improved ev3devcmd which only uses paramiko and is not dependent on rpyc anymore
+ - improved ev3devcmd uses sftpclone to mirror a whole source directory to ev3
+ - mirror removes files/dirs on target which are not in source directory
+ - mirror excludes files and directories in the rootdir  which names start with a '.'
+   they are excluded both from mirroring as from deletion (if only at target,
+   but not in sourcedir)
+
+0.37 
+ - NEW: ev3dev2simulator
+ - last version of thonny-ev3dev plugin which uses the ev3devcontext library
+   with the three modes: rpyc, simulator, or original ev3dev
