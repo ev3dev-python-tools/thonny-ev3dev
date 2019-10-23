@@ -9,14 +9,6 @@
              
     
 /Applications/Thonny-3.2.1.app/Contents/Frameworks/Python.framework/Versions/3.7/bin/python3.7 -m pip install --user \
-  --no-cache-dir  -f /Users/harcok/Documents/IdeaProjects/thonny-ev3dev/pypi/  ev3devlogging thonny-ev3dev ev3devrpyc 
+  --no-cache-dir  --force-reinstall -f /Users/harcok/Documents/IdeaProjects/thonny-ev3dev/pypi/  ev3devlogging thonny-ev3dev ev3devrpyc 
 
-## install plugin: thonny-ev3dev
-#/Applications/Thonny-2.1.22.app/Contents/Frameworks/Python.framework/Versions/3.6/bin/python3.6 -mpip  install --target  ~/.thonny/plugins/lib/python/site-packages/ \
-#   --no-cache-dir -f /Users/harcok/Documents/IdeaProjects/thonny-ev3dev/pypi/   ev3devlogging thonny-ev3dev 
-## note: we install ev3dev2simulator for the simulator, but not for the simulated ev3dev2api
-#
-## install package: ev3devcontext
-#~/.thonny/BundledPython36/bin/pip3  install --no-cache-dir -f /Users/harcok/Documents/IdeaProjects/thonny-ev3dev/pypi/ ev3devlogging ev3dev2simulator ev3devrpyc
-## note: we install ev3dev2simulator not for the simulator, but for the simulated ev3dev2api
       

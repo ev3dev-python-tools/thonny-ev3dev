@@ -218,7 +218,7 @@ def upload(file=None):
 
 def run_simulator():
 
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator.Simulator']
+    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator']
     print(list)
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
