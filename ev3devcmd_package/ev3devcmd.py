@@ -374,7 +374,7 @@ def base_mirror(args,local_path,dest_path):
 
     # exclude directories named __pycache__
     from pathlib import Path
-    for item in Path('.').glob( '**/__pycache__'):
+    for item in Path(local_path).glob( '**/__pycache__'):
         sync.exclude_list.add(os.path.join(local_path,item))
 
     global orig_remove
