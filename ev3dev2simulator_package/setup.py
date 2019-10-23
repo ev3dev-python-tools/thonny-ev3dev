@@ -43,12 +43,9 @@ For more info: https://github.com/harcokuppens/thonny-ev3dev/wiki/ev3dev2simulat
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
-      #install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk','dataclasses'],
-      install_requires=['arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk'],
+      install_requires=['ev3devlogging','arcade','pyobjc;sys.platform=="darwin"','pyyaml','pymunk'],
       packages=find_packages(),
       include_package_data=True,
 
-      #packages=["ev3dev2simulator","ev3dev2"],
-      #package_dir ={'ev3dev2simulator': 'ev3dev2simulator', 'ev3dev2':'ev3dev2simulator/ev3dev2api/ev3dev2'},
       scripts=['bin/ev3dev2simulator']
 )
