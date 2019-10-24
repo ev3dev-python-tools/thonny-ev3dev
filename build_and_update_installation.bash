@@ -1,0 +1,4 @@
+
+bash build_pypi_packages.bash
+bash install_local_pypi_packages_in_thonny.bash
+
