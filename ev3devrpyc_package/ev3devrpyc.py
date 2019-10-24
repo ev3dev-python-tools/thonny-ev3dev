@@ -38,7 +38,10 @@ def importModule(modulepath):
                print(connection)
            # note: attach connection variable as global variable in module so that doesn't get garbage collected
     except socket.timeout as ex:
-        raise Exception("remote control connection timed out") from None
+        raise Exception("remote control connection to ip={ip} timed out".format(ip=ev3ip)) from None
+    except ConnectionError as ex:
+        raise Exception("connection error in remote control connection to ip={ip}".format(ip=ev3ip)) from None
+
     result = connection.modules[modulepath]      # import modulepath remotely
     return result
 

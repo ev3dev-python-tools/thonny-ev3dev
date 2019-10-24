@@ -1,6 +1,6 @@
 .idea
 **/dist/
-thonny/
+#thonny/
 **/__pycache__/
 **/.DS_Store
 #/ev3dev2simulator_package

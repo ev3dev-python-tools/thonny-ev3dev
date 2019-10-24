@@ -26,10 +26,10 @@ def sshconnect(args):
         # like for rpyc.classic.connect we use a 3 seconds timeout for ssh.connect
         ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
     except socket.timeout as e:
-        print("\nProblem: failed connecting with EV3 over ssh: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
+        print("\nProblem: failed connecting with EV3 over ssh to '{ip}': timeout happened.\n\n         Is the EV3 maybe not connected?\n\n         Or is the address '{ip}' maybe wrong?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.".format(ip=args.address))
         sys.exit(1)
     except paramiko.ssh_exception.AuthenticationException as e:
-        print("\nProblem: failed connecting with EV3 over ssh: authentication failed.\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
+        print("\nProblem: failed connecting with EV3 over ssh: authentication failed.\n\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
         sys.exit(1)
     except Exception as e:
         print(e)
@@ -89,7 +89,7 @@ def upload(args):
 
     # quickly show in modal dialog in thonny before it exits
     print("\n\nupload succesfull")
-    sleep(1)
+    sleep(2)  # to still read it was successfull in automatically closing dialog box in Thonny
 
 
 def start(args):
@@ -160,7 +160,8 @@ def start(args):
     ssh.close()
 
     # quickly show in modal dialog in thonny before it exits
-    sleep(4)  # longer because start on ev3 anyway slow
+    sleep(4)  # to still read it was successfull in automatically closing dialog box in Thonny
+    # longer because start on ev3 anyway slow
 
 
 
@@ -180,7 +181,7 @@ def stop(args):
             print("\nProblem: failed connecting with EV3 over rpyc: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
             sys.exit(1)
         else:
-            print("rpyc connection failed, try ssh connection\n")
+            print("rpyc connection failed, try ssh connection\nNote: you can configure a longer rpyc_timeout!")
             stop_ssh(args)
 
 
@@ -190,6 +191,9 @@ def stop_rpyc(args):
 
     ip=args.address
     port = rpyc.classic.DEFAULT_SERVER_PORT
+    # print("port",port)
+    # print("address",ip)
+    # print("args",args)
     stream=rpyc.SocketStream.connect(ip,port,timeout=args.rpyc_timeout,attempts=1)
     conn=rpyc.classic.connect_stream(stream)
 
@@ -226,7 +230,7 @@ def stop_rpyc(args):
     ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
 
     print("\n\nSuccesfully runned the command 'stop' on the EV3.")
-
+    sleep(2)  # to still read it was successfull in automatically closing dialog box in Thonny
 
 # slow stop over ssh if not rpyc server on EV3
 def stop_ssh(args):
@@ -285,6 +289,7 @@ def stop_ssh(args):
 
     print("\n\nSuccesfully runned the command 'stop' on the EV3.")
     ssh.close()
+    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
 
 
@@ -467,7 +472,7 @@ def mirror(args):
     print("Mirror")
     base_mirror(args,src_path,dest_path)
     print("\n\nmirror succesfull")
-    sleep(1)
+    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
 def cleanup(args):
 
@@ -480,7 +485,7 @@ def cleanup(args):
     print("Cleanup")
     base_mirror(args,src_path,dest_path)
     print("\n\ncleanup succesfull")
-    sleep(1)
+    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
 
 def install_rpyc_server(args):
@@ -544,6 +549,8 @@ def install_rpyc_server(args):
     sleep(30)
 
     print("\n\nfinished")
+
+    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
     ftp.close()
     ssh.close()
