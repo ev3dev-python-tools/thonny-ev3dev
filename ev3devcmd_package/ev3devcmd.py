@@ -1,5 +1,6 @@
 import socket
 import paramiko
+import rpyc
 import sys
 import os
 import argparse
@@ -25,10 +26,10 @@ def sshconnect(args):
         # like for rpyc.classic.connect we use a 3 seconds timeout for ssh.connect
         ssh.connect(args.address, username=args.username, password=args.password,timeout=3,look_for_keys=False)
     except socket.timeout as e:
-        print("\nProblem: failed connecting with EV3: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
+        print("\nProblem: failed connecting with EV3 over ssh: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
         sys.exit(1)
     except paramiko.ssh_exception.AuthenticationException as e:
-        print("\nProblem: failed connecting with EV3: authentication failed.\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
+        print("\nProblem: failed connecting with EV3 over ssh: authentication failed.\n          Within the Thonny IDE you can the credentials in \"Tools > Options\" menu.\n         With the ev3dev command you can give the credentials as options.")
         sys.exit(1)
     except Exception as e:
         print(e)
@@ -167,9 +168,68 @@ def start(args):
 
 
 
-def killall(args):
 
+# stop, first tries fast stop_rpyc, but if no rpyc server on EV3, then switches to slower stop_ssh over ssh
+def stop(args):
     print("stop/kill all programs and motors/sound on EV3\n\n")
+
+    try:
+        stop_rpyc(args)
+    except socket.timeout as e:
+        if args.rpyc_only:
+            print("\nProblem: failed connecting with EV3 over rpyc: timeout happened.\n         EV3 maybe not connected?\n         Within the Thonny IDE you can fix the EV3 address in \"Tools > Options\" menu.\n         With the ev3dev command you can give the EV3 address as an option.")
+            sys.exit(1)
+        else:
+            print("rpyc connection failed, try ssh connection\n")
+            stop_ssh(args)
+
+
+
+# fast stop using rpyc
+def stop_rpyc(args):
+
+    ip=args.address
+    port = rpyc.classic.DEFAULT_SERVER_PORT
+    stream=rpyc.SocketStream.connect(ip,port,timeout=args.rpyc_timeout,attempts=1)
+    conn=rpyc.classic.connect_stream(stream)
+
+    #NOTE: default: timeout=3 but does 6 attemps => total of 18 seconds
+    ## rpyc.classic.connect has by default a timeout of 3  seconds (see rpyc.SocketStream.connect)
+    #conn = rpyc.classic.connect(ip) # host name or IP address of the EV3
+
+    os= conn.modules['os']
+    sudoPassword=args.password
+
+
+    print("kill programs running on EV3")
+    # kill programs running on ev3
+    command="kill -9 -`pgrep -f 'python3 /home/robot'`"
+    # no sudo needed, program runs as user robot
+    os.system(command)
+
+    print("stop motors on EV3")
+    # kill motors
+    ev3= conn.modules['ev3dev.ev3']
+    for m in ev3.list_motors():
+        m.reset()
+
+    print("stop sound on EV3")
+    # kill sound via beep
+    command='pkill -f /usr/bin/aplay'
+    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+    # kill sound aplay
+    command='pkill -f /usr/bin/beep'
+    os.system('echo %s|sudo -S %s' % (sudoPassword, command))
+
+    print("set leds back to default of green")
+    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
+    ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
+
+    print("\n\nSuccesfully runned the command 'stop' on the EV3.")
+
+
+# slow stop over ssh if not rpyc server on EV3
+def stop_ssh(args):
 
     ssh=sshconnect(args)
     password=args.password
@@ -219,11 +279,11 @@ def killall(args):
             if (not "$" in line) and (not line.startswith('>')) and (not password in line) and (not "Last login:" in line) and (not "logout" in line):
                 print(line, end = '')
     except Exception as inst:
-        print("Failed running /usr/bin/ev3killall on the EV3.",file=sys.stderr)
+        print("Failed executing stop on the EV3.",file=sys.stderr)
         ssh.close()
         sys.exit(1)
 
-    print("\n\nSuccesfully runned the command 'killall' on the EV3.")
+    print("\n\nSuccesfully runned the command 'stop' on the EV3.")
     ssh.close()
 
 
@@ -479,6 +539,10 @@ def install_rpyc_server(args):
     data = stdout.read().splitlines()
     data = stderr.read().splitlines()
 
+    # add extra sleep to be sure rpyc server is started when we say finished!
+    #  => because otherwise window says finished but rpyc server not yet started
+    sleep(30)
+
     print("\n\nfinished")
 
     ftp.close()
@@ -561,13 +625,16 @@ def main(argv=None):
     parser_mirror.set_defaults(func=mirror)
 
     # create the parser for the "start" command
-    parser_start = subparsers.add_parser('start',help="run program on EV3; program must already be on EV3's homedir")
+    parser_start = subparsers.add_parser('start',help="start program on EV3; program must already be on EV3's homedir")
     parser_start.add_argument('file', type=str,help="program in EV3's homedir; directory of file is ignored")
     parser_start.set_defaults(func=start)
 
-    # create the parser for the "killall" command
-    parser_killall = subparsers.add_parser('killall', help="stop/kill all programs and motors/sound on EV3")
-    parser_killall.set_defaults(func=killall)
+    # create the parser for the "stop" command
+    parser_stop = subparsers.add_parser('stop', help="stop program/motors/sound on EV3")
+    # rpyc_timeout
+    parser_stop.add_argument('-t', '--rpyc-timeout',type=float,help="timeout for rpyc connection", default=0.1)
+    parser_stop.add_argument('-f', '--rpyc-only',action='store_true',help="only connect with rpyc and don't use ssh fallback if rpyc connection fails")
+    parser_stop.set_defaults(func=stop)
 
 
     # create the parser for the "install_ev3devlogging" command

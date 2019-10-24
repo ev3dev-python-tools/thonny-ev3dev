@@ -13,8 +13,14 @@ connection=None
 debug=False
 #debug=True
 
+# a reasonable timeout of 3 seconds
+# note we do only one attempt
+rpyc_timeout=3
+rpyc_attempts=1
+
 def importModule(modulepath):
     global connection
+    global rpyc_timeout,rpyc_attempts
     ev3ip=os.environ.get('EV3IP') or '192.168.0.1'
 
     try:
@@ -22,7 +28,12 @@ def importModule(modulepath):
         if connection == None:
            if debug:
                print("importModule connect: " + ev3ip)
-           connection = rpyc.classic.connect(ev3ip) # host name or IP address of the EV3
+
+
+           port = rpyc.classic.DEFAULT_SERVER_PORT
+           stream=rpyc.SocketStream.connect(ev3ip,port,timeout=rpyc_timeout,attempts=rpyc_attempts)
+           connection=rpyc.classic.connect_stream(stream)
+           #connection = rpyc.classic.connect(ev3ip) # host name or IP address of the EV3
            if debug:
                print(connection)
            # note: attach connection variable as global variable in module so that doesn't get garbage collected
