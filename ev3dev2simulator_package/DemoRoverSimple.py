@@ -23,13 +23,17 @@ SPEED_ZERO   = ev3.SpeedPercent(0)       # speed=0
 tankDrive.on(SPEED_NORMAL, SPEED_NORMAL)
 while True:
     color = colorSensor.color
-    if color == colorSensor.COLOR_BLACK: # hit black border line 
-        log("hit border: backup and turn right")
-        # stop
+    if color == colorSensor.COLOR_BLACK: # hit black border line
+        print("border!")
+        log("detect black")
+        # immediately stop
+        log("stop")
         tankDrive.stop()
         # drive backwards for the duration of 1 second
+        log("drive backwards")
         tankDrive.on_for_seconds(SPEED_BACKWARDS,SPEED_BACKWARDS, 1)
         # rotate right for 1 second by only running the left motor forward (keep right motor off)
+        log("turn right")
         tankDrive.on_for_seconds(SPEED_NORMAL,SPEED_ZERO, 1)
         log("drive forward")
         tankDrive.on(ev3.SpeedPercent(30), ev3.SpeedPercent(30))
