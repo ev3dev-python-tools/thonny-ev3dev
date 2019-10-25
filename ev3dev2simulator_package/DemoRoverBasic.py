@@ -38,17 +38,19 @@ def checkCollision():
 # main loop
 #-----------
 
+
+
 tankDrive.on(ev3.SpeedPercent(30), ev3.SpeedPercent(30))
 while True:
-    colorNr = colorSensor.color
-    if colorNr == 1: # black line
+    color = colorSensor.color
+    if color == colorSensor.COLOR_BLACK: # black line
         log("border")
         tankDrive.stop()
         reverseSmallDistance()
         rotateDegrees(150)
         tankDrive.on(ev3.SpeedPercent(30), ev3.SpeedPercent(30))
-    elif (colorNr == 2 or colorNr == 4 or colorNr == 5) : # blue or yellow or red
-        print("lake with color={color}".format(color=colorNr))
+    elif (color == colorSensor.COLOR_BLUE or color == colorSensor.COLOR_YELLOW or color == colorSensor.COLOR_RED) : 
+        print("lake with color={color}".format(color=color))
         log("lake")
         tankDrive.stop()
         rotateDegrees(90)
