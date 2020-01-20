@@ -7,6 +7,7 @@ import os
 import sys
 
 import arcade
+import pyglet
 from pymunk import Space
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -28,21 +29,72 @@ from ev3dev2simulator.state.RobotState import get_robot_state
 from ev3dev2simulator.util.Util import apply_scaling
 
 
+
 class Simulator(arcade.Window):
 
-    def __init__(self, robot_state, robot_pos):
+
+
+    def __init__(self, robot_state, robot_pos, show_fullscreen,show_maximized,use_second_screen_to_show_simulator):
+
         self.cfg = load_config()
         self.robot_state = robot_state
 
+
+        # get current_screen_index
+        current_screen_index=0
+        if use_second_screen_to_show_simulator == True:
+            current_screen_index=1
+        display = pyglet.canvas.get_display()
+        screens= display.get_screens()
+        num_screens=len(screens)
+        if  num_screens== 1:
+            current_screen_index=0
+        self.current_screen_index=current_screen_index
+
+
+        # HACK override default screen function to change it.
+        # Note: arcade window class doesn't has the screen parameter which pyglet has, so by overriding
+        #       the get_default_screen method we can still change the screen parameter.
+        def get_default_screen():
+            """Get the default screen as specified by the user's operating system preferences."""
+            return screens[self.current_screen_index]
+        display.get_default_screen=get_default_screen
+
+        # note:
+        #  for macos  get_default_screen() is also used to as the screen to draw the window initially
+        #  for windows the current screen is used to to draw the window initially,
+        #              however the value set by get_default_screen() is used as the screen
+        #              where to display the window fullscreen!
+
+        # note: for Macos the screen of the mac can have higher pixel ratio (self.get_pixel_ratio())
+        #       then the second screen connected. If you drag the window from the mac screen to the
+        #       second screen then the windows may be the same size, but the simulator is drawn in only
+        #       in the lower left quart of the window.
+        #        => we need somehow make drawing of the simulator larger
+        #       SOLUTION: just when starting up the simulator set it to open on the second screen,
+        #                 then it goes well, and you can also open it fullscreen on the second screen
+        # see also : https://stackoverflow.com/questions/49302201/highdpi-retina-windows-in-pyglet
+
+
         self.scaling_multiplier = load_scale_config()
+
+
 
         self.screen_width = int(apply_scaling(self.cfg['screen_settings']['screen_width']))
         self.screen_height = int(apply_scaling(self.cfg['screen_settings']['screen_height']))
         screen_title = self.cfg['screen_settings']['screen_title']
 
-        super(Simulator, self).__init__(self.screen_width, self.screen_height, screen_title, update_rate=1 / 30)
+
+        super(Simulator, self).__init__(self.screen_width, self.screen_height, screen_title, update_rate=1 / 30,
+                                        resizable=True)
 
         arcade.set_background_color((235, 235, 235))
+
+        if show_fullscreen == True:
+            self.toggleFullScreen()
+
+        if show_maximized == True:
+            self.maximize()
 
         self.robot_elements = None
         self.obstacle_elements = None
@@ -67,6 +119,70 @@ class Simulator(arcade.Window):
         self.top_us_data = -1
 
         self.text_x = self.screen_width - apply_scaling(220)
+
+
+
+
+    def on_key_press(self, key, modifiers):
+        """Called whenever a key is pressed. """
+
+
+        # Toggle fullscreen
+        if key == arcade.key.T:
+            # # User hits T. Switch screen used for fullscreen.
+            # switch which screen is used for fullscreen ; Toggle between first and second screen (other screens are ignored)
+            self.toggleScreenUsedForFullscreen()
+
+        # Maximize window
+        # note: is toggle on macos, but not on windows
+        if key == arcade.key.M:
+            if (not self.fullscreen): self.maximize()
+
+        #src: http://arcade.academy/examples/full_screen_example.html
+        # Fullscreen => keeps viewport coordinates the same   STRETCHED (FULLSCREEN)
+        # Instead of a one-to-one mapping to screen size, we use stretch/squash window to match the constants.
+        if key == arcade.key.F:
+            self.toggleFullScreen()
+
+
+    #toggle screen for fullscreen => doesn't work  => sizing errors
+    def toggleScreenUsedForFullscreen(self):
+        display = pyglet.canvas.get_display()
+        screens= display.get_screens()
+        num_screens=len(screens)
+        if  num_screens== 1:
+            return
+        # toggle only between screen 0 and 1 (other screens are ignored)
+        self.current_screen_index=(self.current_screen_index+1)%2
+
+        # override hidden screen parameter in window
+        self._screen=screens[self.current_screen_index]
+
+    def toggleFullScreen(self):
+            # User hits 'f' Flip between full and not full screen.
+            #self.set_fullscreen(not self.fullscreen,self.screen_width*2, self.screen_height*2)
+            self.set_fullscreen(not self.fullscreen)
+
+            # Instead of a one-to-one mapping, stretch/squash window to match the
+            # constants. This does NOT respect aspect ratio. You'd need to
+            # do a bit of math for that.
+            self.set_viewport(0, self.screen_width, 0, self.screen_height)
+
+            # HACK for macos: without this hack fullscreen on the second screen is shifted downwards in the y direction
+            #                 By also calling the maximize function te position the fullscreen in second screen is corrected!)
+            import platform
+            if platform.system() == "darwin":
+                self.maximize()
+
+
+    def on_resize(self, width, height):
+        """ This method is automatically called when the window is resized. """
+
+        # Call the parent. Failing to do this will mess up the coordinates, and default to 0,0 at the center and the
+        # edges being -1 to 1.
+        super().on_resize(width, height)
+
+        self.set_viewport(0, self.screen_width, 0, self.screen_height)
 
 
     def setup(self):
@@ -130,6 +246,7 @@ class Simulator(arcade.Window):
         self._draw_text()
 
 
+
     def _draw_text(self):
         center_cs = 'CS center:  ' + str(self.center_cs_data)
         left_ts = 'TS right:      ' + str(self.right_ts_data)
@@ -181,6 +298,7 @@ class Simulator(arcade.Window):
 
 
 def main():
+
     """
     Spawns the user thread and creates and starts the simulation.
     """
@@ -206,6 +324,17 @@ def main():
                         required=False,
                         type=int)
 
+    parser.add_argument("-2", "--show-on-second-monitor",
+                        action='store_true',
+                        help="Show simulator window on second monitor instead, default is first monitor")
+    parser.add_argument("-f", "--fullscreen",
+                        action='store_true',
+                        help="Show simulator fullscreen")
+    parser.add_argument("-m", "--maximized",
+                        action='store_true',
+                        help="Show simulator maximized")
+
+
     args = vars(parser.parse_args())
 
     s = args['window_scaling']
@@ -215,15 +344,23 @@ def main():
     y = apply_scaling(args['robot_position_y'])
     o = args['robot_orientation']
 
+    use_second_screen_to_show_simulator=args['show_on_second_monitor']
+    show_fullscreen=args['fullscreen']
+    show_maximized=args['maximized']
+
+
     robot_state = get_robot_state()
+    robot_pos= (x, y, o)
 
     server_thread = ServerSocket(robot_state)
     server_thread.setDaemon(True)
     server_thread.start()
 
-    sim = Simulator(robot_state, (x, y, o))
+    sim = Simulator(robot_state, robot_pos,show_fullscreen,show_maximized,use_second_screen_to_show_simulator)
     sim.setup()
     arcade.run()
+
+
 
 
 def check_scale(value):

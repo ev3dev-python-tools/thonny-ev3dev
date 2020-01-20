@@ -56,6 +56,7 @@ def line_buffered(f):
             line_buf = ''
 
 
+
 def upload(args):
     # allow any source path on pc ( relative paths taken relative from cwd where this command is executed)
     # allow only destination path in homedir on ev3 
@@ -89,7 +90,6 @@ def upload(args):
 
     # quickly show in modal dialog in thonny before it exits
     print("\n\nupload succesfull")
-    sleep(2)  # to still read it was successfull in automatically closing dialog box in Thonny
 
 
 def start(args):
@@ -159,9 +159,7 @@ def start(args):
     ftp.close()
     ssh.close()
 
-    # quickly show in modal dialog in thonny before it exits
-    sleep(4)  # to still read it was successfull in automatically closing dialog box in Thonny
-    # longer because start on ev3 anyway slow
+
 
 
 
@@ -230,7 +228,6 @@ def stop_rpyc(args):
     ev3.Leds.set_color(ev3.Leds.LEFT, ev3.Leds.GREEN)
 
     print("\n\nSuccesfully runned the command 'stop' on the EV3.")
-    sleep(2)  # to still read it was successfull in automatically closing dialog box in Thonny
 
 # slow stop over ssh if not rpyc server on EV3
 def stop_ssh(args):
@@ -289,8 +286,6 @@ def stop_ssh(args):
 
     print("\n\nSuccesfully runned the command 'stop' on the EV3.")
     ssh.close()
-    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
-
 
 
 
@@ -472,7 +467,6 @@ def mirror(args):
     print("Mirror")
     base_mirror(args,src_path,dest_path)
     print("\n\nmirror succesfull")
-    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
 def cleanup(args):
 
@@ -485,7 +479,6 @@ def cleanup(args):
     print("Cleanup")
     base_mirror(args,src_path,dest_path)
     print("\n\ncleanup succesfull")
-    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
 
 def install_rpyc_server(args):
@@ -550,7 +543,6 @@ def install_rpyc_server(args):
 
     print("\n\nfinished")
 
-    sleep(2) # to still read it was successfull in automatically closing dialog box in Thonny
 
     ftp.close()
     ssh.close()
@@ -598,6 +590,8 @@ def main(argv=None):
     parser.add_argument('-a', '--address',action='store',default=default_ip,help="network address of EV3. Can also be set with EV3IP environment variable.")
     parser.add_argument('-u', '--username',action='store',default=default_user,help="username used to login with ssh on EV3. Can also be set with EV3USERNAME environment variable.")
     parser.add_argument('-p', '--password',action='store',default=default_password,help="password used to login with ssh on EV3. Can also be set with EV3PASSWORD environment variable.")
+
+    parser.add_argument('--sleep-after',type=int,default=0,help="Time to sleep after executing command. Mainly needed for gui to let user read output of command before closing it.")
 
 
     subparsers = parser.add_subparsers(dest='cmd')
@@ -659,6 +653,10 @@ def main(argv=None):
     # and call the function found by parsing, and pass it the args
     args.func(args)
     sys.stdout.flush()
+
+    # to still read output of command if it was successfull in an automatically closing GUI dialog box (eg. in Thonny IDE)
+    sleep(args.sleep_after)
+
 
 
 

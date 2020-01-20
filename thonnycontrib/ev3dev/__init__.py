@@ -21,7 +21,8 @@ from thonny.ui_utils import SubprocessDialog, center_window
 from thonny.ui_utils import create_string_var,create_int_var
 
 
-#MySubprocessDialog = SubprocessDialog
+# improved  SubprocessDialog  windows for thonny-ev3dev plugin
+#--------------------------------------------------------------
 
 
 def get_main_background():
@@ -178,6 +179,90 @@ class MySubprocessDialog(tk.Toplevel):
             self.destroy()
 
 
+
+# Configuratie page "EV3" in thonny options (preferences window for macos)
+#-------------------------------------------------------------------------
+
+
+class Ev3ConfigurationPage(ConfigurationPage):
+    """
+     configure connection settings
+      * ip address
+      * username
+      * password
+
+     configure advanced options
+      * whether to show Start/Stop buttons on toolbar  (needs restart)
+      * rpyc timeout
+
+    """
+
+    def __init__(self, master):
+        ConfigurationPage.__init__(self, master)
+
+        # HACK: take geometry from options window and increase its width with 5 em for extra ev3 tab
+        optionsWindow=self.master.master
+        optionsWindow.update() # to update geometry in optionsWindow
+        geometry=optionsWindow.winfo_geometry()
+        # print("geometry:",geometry) # needs above update call otherwise geometry: 1x1+0+0
+        width=optionsWindow.winfo_width()
+        height=optionsWindow.winfo_height()
+        # print("width:",width)
+        # print("height:",height)
+        from  thonny.ui_utils import ems_to_pixels
+        width=width+ems_to_pixels(5)
+        optionsWindow.geometry("%dx%d" % (width, height))
+
+        ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
+        workbench=get_workbench()
+
+        for name in ('ip','username','password','rpyc_timeout'):
+            self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
+        self.show_start_stop_buttons=create_int_var(workbench.get_option("ev3.show_start_stop_buttons"))
+        self.makeentry( "IP address:", self.ip, width=10)
+        self.makeentry( "User name:", self.username, width=10)
+        self.makeentry( "Password:", self.password, width=10)
+
+        print("show_start_stop_buttons: ", self.show_start_stop_buttons.get())
+        print("password: ", self.password.get())
+
+        ttk.Label(self, text="EV3 Advanced options").pack(side=tk.TOP, padx=5, pady=(20,20))
+
+        self.makecheckbox( "Show start/stop buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
+        self.makeentry( "Rpyc Timeout(secs):", self.rpyc_timeout, width=10)
+
+    def makecheckbox(self,caption, variable, **options):
+        row = ttk.Frame(self)
+
+        entry = ttk.Checkbutton(row,text=caption,variable=variable, **options)
+        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        entry.pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
+        return entry
+
+    def makeentry(self,caption, variable, **options):
+        row = ttk.Frame(self)
+        label=ttk.Label(row, width=15, text=caption, anchor='w')
+        entry = ttk.Entry(row,textvariable=variable, **options)
+
+        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        label.pack(side=tk.LEFT)
+        entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+        return entry
+
+    def apply(self):
+        workbench=get_workbench()
+        for name in ('ip','username','password','rpyc_timeout','show_start_stop_buttons'):
+            variable=self.__dict__[name]
+            if variable.modified:
+                value = variable.get()
+                workbench.set_option("ev3."+name, value)
+
+
+
+
+# helper functions for credentials
+#----------------------------------
+
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
@@ -192,6 +277,8 @@ def get_credentials():
     }
     return  AttrDict(credentials)
 
+# helper function for ev3dev cmd
+#----------------------------------
 
 def get_base_ev3dev_cmd():
 
@@ -201,21 +288,10 @@ def get_base_ev3dev_cmd():
     return basecmd + [ "-a", credentials.address, "-u", credentials.username, "-p", credentials.password]
 
 
-def upload(file=None):
-    """Uploads given .py file to EV3."""
 
 
-    if file == None:
-        return
-    list = get_base_ev3dev_cmd() + ['upload','--force', file]
-
-    env = os.environ.copy()
-    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            universal_newlines=True, env=env)
-    dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
-    dlg.wait_window()
-
-
+# commands
+#----------------------------------
 
 def run_simulator():
 
@@ -223,6 +299,23 @@ def run_simulator():
     print(list)
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
+
+
+
+
+def upload(file=None):
+    """Uploads given .py file to EV3."""
+
+
+    if file == None:
+        return
+    list = get_base_ev3dev_cmd() + [ '--sleep-after', '2', 'upload','--force', file]
+
+    env = os.environ.copy()
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
+    dlg.wait_window()
 
 def upload_current_script():
     """upload current python script to EV3"""
@@ -253,8 +346,11 @@ def upload_current_script():
         showerror("Error", error_msg)
 
 
+
+
 def stop_ev3_program_motors_sound__bg__rpyc_only():
-    # stop in background thread (use API interface of ev3devcmd)
+    # Used for enhancing stop button in thonny!
+    # The extra stop over rpyc is done in a background thread (use API interface of ev3devcmd)
 
     # when rpyc_only then use a timeout of 3 seconds; we have time, because no ssh fallback done!
     credentials = {
@@ -271,7 +367,9 @@ def stop_ev3_program_motors_sound__bg__rpyc_only():
 
 
 def stop_ev3_program_motors_sound():
-    # stop in dialog window ( use cmdline interface of ev3devcmd)
+    # menu command to stop everything on an EV3 using the cmdline interface of ev3devcmd.
+    # First try rpyc, but if that fails because no rpyc server is running,
+    # then try using the slower ssh protocol. An ssh server is always running.
 
     # rpyc timeout is small by default, so that for EV3 where no rpyc server is running we quickly can continue with
     # stopping over ssh instead!
@@ -285,7 +383,7 @@ def stop_ev3_program_motors_sound():
     #                  Menu:  "Device" -> "Stop programs/motor/sound on EV3"
     #      which has ssh fallthrough if rpyc connection fails ( in case no rpyc server on EV3)
     #
-    list = get_base_ev3dev_cmd() + ['stop','--rpyc-timeout',get_workbench().get_option("ev3.rpyc_timeout")]
+    list = get_base_ev3dev_cmd() + ['--sleep-after', '2','stop','--rpyc-timeout',get_workbench().get_option("ev3.rpyc_timeout")]
 
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -303,7 +401,7 @@ def start(file=None):
         return
     # take basename to find it in on the ev3 on the user's homedir!
     file = os.path.basename(file)
-    list = get_base_ev3dev_cmd() + ['start', file]
+    list = get_base_ev3dev_cmd() + ['--sleep-after', '4','start', file]
 
 
     env = os.environ.copy()
@@ -315,7 +413,7 @@ def start(file=None):
 
 
 
-def start_current_script():
+def start_current_script_on_ev3():
     """upload current python script to EV3"""
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
     code = current_editor.get_text_widget().get("1.0", "end")
@@ -402,7 +500,7 @@ def download_log_of_current_script():
 def cleanup_files_on_ev3():
     """cleanup files in homedir on EV3."""
 
-    list = get_base_ev3dev_cmd() + ['cleanup']
+    list = get_base_ev3dev_cmd() + ['--sleep-after', '2','cleanup']
 
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -423,7 +521,7 @@ def list_files_on_ev3():
 
 def install_rpyc_server():
     """Install rpyc server on the EV3. The server is immediately started after installation."""
-    list = get_base_ev3dev_cmd() + ['install_rpyc_server']
+    list = get_base_ev3dev_cmd() + ['--sleep-after', '2','install_rpyc_server']
 
     env = os.environ.copy()
 
@@ -457,81 +555,10 @@ def cmd_interrupt_reset():
 
 
 
-class Ev3ConfigurationPage(ConfigurationPage):
-    """
-     configure connection settings
-      * ip address
-      * username
-      * password
-
-     configure advanced options
-      * whether to show Start/Stop buttons on toolbar  (needs restart)
-      * rpyc timeout
-
-    """
-
-    def __init__(self, master):
-        ConfigurationPage.__init__(self, master)
-
-        # HACK: take geometry from options window and increase its width with 5 em for extra ev3 tab
-        optionsWindow=self.master.master
-        optionsWindow.update() # to update geometry in optionsWindow
-        geometry=optionsWindow.winfo_geometry()
-        # print("geometry:",geometry) # needs above update call otherwise geometry: 1x1+0+0
-        width=optionsWindow.winfo_width()
-        height=optionsWindow.winfo_height()
-        # print("width:",width)
-        # print("height:",height)
-        from  thonny.ui_utils import ems_to_pixels
-        width=width+ems_to_pixels(5)
-        optionsWindow.geometry("%dx%d" % (width, height))
-
-        ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
-        workbench=get_workbench()
-
-        for name in ('ip','username','password','rpyc_timeout'):
-            self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
-        self.show_start_stop_buttons=create_int_var(workbench.get_option("ev3.show_start_stop_buttons"))
-        self.makeentry( "IP address:", self.ip, width=10)
-        self.makeentry( "User name:", self.username, width=10)
-        self.makeentry( "Password:", self.password, width=10)
-
-        print("show_start_stop_buttons: ", self.show_start_stop_buttons.get())
-        print("password: ", self.password.get())
-
-        ttk.Label(self, text="EV3 Advanced options").pack(side=tk.TOP, padx=5, pady=(20,20))
-
-        self.makecheckbox( "Show start/stop buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
-        self.makeentry( "Rpyc Timeout(secs):", self.rpyc_timeout, width=10)
-
-    def makecheckbox(self,caption, variable, **options):
-        row = ttk.Frame(self)
-
-        entry = ttk.Checkbutton(row,text=caption,variable=variable, **options)
-        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
-        entry.pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
-        return entry
-
-    def makeentry(self,caption, variable, **options):
-        row = ttk.Frame(self)
-        label=ttk.Label(row, width=15, text=caption, anchor='w')
-        entry = ttk.Entry(row,textvariable=variable, **options)
-
-        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
-        label.pack(side=tk.LEFT)
-        entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-        return entry
-
-    def apply(self):
-        workbench=get_workbench()
-        for name in ('ip','username','password','rpyc_timeout','show_start_stop_buttons'):
-            variable=self.__dict__[name]
-            if variable.modified:
-                value = variable.get()
-                workbench.set_option("ev3."+name, value)
 
 
-
+# helper functions for load_plugin()
+#------------------------------------
 
 def command_enabled():
     return  get_runner().get_state() == "waiting_toplevel_command"
@@ -544,7 +571,8 @@ def currentscript_and_command_enabled():
             )
 
 
-
+# load plugin
+#--------------
 
 def load_plugin():
     """Adds EV3 buttons on toolbar and commands under Run and Tools menu. Add EV3 configuration window."""
@@ -572,6 +600,29 @@ def load_plugin():
 
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
 
+
+    # menu items (first group in device menu; all without icons)
+
+    get_workbench().add_command(command_id="ev3_install_logging",
+                                menu_name="tempdevice",
+                                command_label="Install ev3devlogging package to the EV3.",
+                                caption="Install ev3devlogging package to the EV3.",
+                                handler=install_logging,
+                                tester=command_enabled,
+                                group=270,
+                                include_in_toolbar=False)
+
+    get_workbench().add_command(command_id="ev3_install_rpyc_server",
+                                menu_name="tempdevice",
+                                command_label="Install rpyc server on the EV3. The server is immediately started after installation.",
+                                caption="Install rpyc server on the EV3. The server is immediately started after installation.",
+                                handler=install_rpyc_server,
+                                tester=command_enabled,
+                                group=270,
+                                include_in_toolbar=False)
+
+    # menu items (second group in device menu; first three with icons also on toolbar)
+
     get_workbench().add_command(command_id="ev3upload",
                                 menu_name="tempdevice",
                                 command_label="Upload current script to EV3",
@@ -595,16 +646,6 @@ def load_plugin():
                                 image=image_path_log,
                                 include_in_toolbar=True)
 
-    get_workbench().add_command(command_id="ev3list",
-                                menu_name="tempdevice",
-                                command_label="List all files in homedir on EV3",
-                                caption="List all files in homedir on EV3",
-                                handler=list_files_on_ev3,
-                                #tester=command_enabled,
-                                default_sequence=None,
-                                group=280,
-                                #image=image_path_clean,
-                                include_in_toolbar=False)
 
     get_workbench().add_command(command_id="ev3clean",
                                 menu_name="tempdevice",
@@ -617,13 +658,28 @@ def load_plugin():
                                 image=image_path_clean,
                                 include_in_toolbar=True)
 
+
+    get_workbench().add_command(command_id="ev3list",
+                                menu_name="tempdevice",
+                                command_label="List all files in homedir on EV3",
+                                caption="List all files in homedir on EV3",
+                                handler=list_files_on_ev3,
+                                #tester=command_enabled,
+                                default_sequence=None,
+                                group=280,
+                                #image=image_path_clean,
+                                include_in_toolbar=False)
+
+
+    # menu items (third group in device menu; with icons but only on menu)
+
     show_start_stop_buttons=get_workbench().get_option("ev3.show_start_stop_buttons")
 
     get_workbench().add_command(command_id="ev3start",
                                 menu_name="tempdevice",
                                 command_label="Start current script on the EV3",
                                 caption="Start current script on the EV3",
-                                handler=start_current_script,
+                                handler=start_current_script_on_ev3,
                                 tester=currentscript_and_command_enabled,
                                 default_sequence="<Control-F10>",
                                 group=290,
@@ -641,6 +697,7 @@ def load_plugin():
                                 image=image_path_killall,
                                 include_in_toolbar=show_start_stop_buttons)
 
+    # menu items (fourth group in device menu; with icon also on toolbar)
 
     get_workbench().add_command(command_id="ev3runsim",
                                 menu_name="tempdevice",
@@ -653,25 +710,6 @@ def load_plugin():
                                 image=image_path_simulator,
                                 include_in_toolbar=True)
 
-    # menu items
-
-    get_workbench().add_command(command_id="ev3_install_logging",
-                                menu_name="tempdevice",
-                                command_label="Install ev3devlogging package to the EV3.",
-                                caption="Install ev3devlogging package to the EV3.",
-                                handler=install_logging,
-                                tester=command_enabled,
-                                group=270,
-                                include_in_toolbar=False)
-
-    get_workbench().add_command(command_id="ev3_install_rpyc_server",
-                                menu_name="tempdevice",
-                                command_label="Install rpyc server on the EV3. The server is immediately started after installation.",
-                                caption="Install rpyc server on the EV3. The server is immediately started after installation.",
-                                handler=install_rpyc_server,
-                                tester=command_enabled,
-                                group=270,
-                                include_in_toolbar=False)
 
 
 
@@ -684,6 +722,12 @@ def load_plugin():
             orig_handler=cmd["handler"]
             def new_handler():
                 orig_handler()
+                # rpyc only because when program is started on thonny
+                # then program is running local on pc in simulator or is using
+                # steering mode with rpyc commands with ev3devrpyc library.
+                # So if steering mode is used we must also remote stop the ev3 with rpyc.
+                # However no need to use slower ssh protocol to stop ev3, because when using steering mode we now
+                # that an rpyc server is running on ev3.
                 stop_ev3_program_motors_sound__bg__rpyc_only()
             cmd["handler"]=new_handler
         if cmd['command_id']== "run_current_script":
