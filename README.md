@@ -1,12 +1,19 @@
-The thonny-ev3dev package is a plug-in which adds EV3 support for Thonny.
+# Thonny-ev3dev: plugin for Thonny for EV3
 
-To correctly use the thonny-ev3dev plugin you must not use 'import ev3dev.ev3 as ev3' to import the ev3dev library, but instead you import it as:
+The thonny-ev3dev plugin makes it easier to program the EV3 programmable LEGO brick 
+using the [Thonny Python IDE for beginners](http://thonny.org/). 
 
-    # get ev3dev library in current context
-    import ev3devcontext
-    ev3=ev3devcontext.getEV3API()
-   
-Then depending on the context(simulator,EV3,pc) the right library is loaded.   
+![Thonny-ev3dev plugin](https://raw.githubusercontent.com/wiki/ev3dev-python-tools/thonny-ev3dev/images/thonny-ev3dev.png "Thonny-ev3dev plugin")
 
-For more info about the thonny-ev3dev plugin see: https://github.com/harcokuppens/thonny-ev3dev/wiki <br>
+Thonny-ev3dev allows you to run your EV3 program easily 
+    
+* on the EV3 or 
+* on the PC in a simulator (default on PC)
+* on the PC remotely steering the EV3
+
+The thonny-ev3dev plugin comes with an ev3dev simulator:
+
+![ev3dev2simulator](https://raw.githubusercontent.com/wiki/ev3dev-python-tools/thonny-ev3dev/images/ev3dev2simulator.png "ev3dev2simulator")
+
+For more info about the thonny-ev3dev plugin see: https://github.com/ev3dev-python-tools/thonny-ev3dev/wiki <br>
 For more info about Thonny: http://thonny.org
