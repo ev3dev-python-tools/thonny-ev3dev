@@ -294,7 +294,16 @@ def get_base_ev3dev_cmd():
 #----------------------------------
 
 def run_simulator():
+    # stop current running program when opening simulator
+    # note: when a simulator is already running it will be terminated and a new one will be opened;
+    #       when we don't stop the program before that, it would give nasty error, because connection lost,
+    #       and we want a nice stop of the program if the simulator is started again
+    get_runner().cmd_stop_restart()
 
+    # run a new simulator, where we kill the previous running if existing just to enforce a single instance
+    # TODO: instead of killing run a server on the simulator to which we can connect to make
+    #       an already running instance the foreground window(active)
+    #        -> see thonny as example
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator']
     print(list)
     env = os.environ.copy()
@@ -742,8 +751,6 @@ def load_plugin():
     for cmd in get_workbench()._commands:
         if cmd['command_id']== "devicedeprecation":
             get_workbench()._commands.remove(cmd)
-
-
 
 
 

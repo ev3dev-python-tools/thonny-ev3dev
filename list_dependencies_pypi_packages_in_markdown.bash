@@ -14,8 +14,11 @@ print_requirements_for_package() {
 
 d=thonny-ev3dev
 print_requirements_for_package . "$d"
-for d in *_package
+for d in submodules/*
 do 
+    # skip thonny
+    if [[ "$d" == "submodules/thonny" ]]; then continue; fi
+
     package_name=${d%_package}
     print_requirements_for_package "$d" "$package_name" 
 done

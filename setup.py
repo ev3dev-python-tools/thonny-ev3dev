@@ -8,7 +8,7 @@ setupdir = os.path.dirname(__file__)
 
 setup(
       name="thonny-ev3dev",
-      version="0.39",
+      version="1.0.0",
       description="A plug-in which adds EV3 support for Thonny",
       long_description="""
 The thonny-ev3dev package is a plug-in which adds EV3 support for Thonny.
@@ -54,7 +54,7 @@ For more info about Thonny: http://thonny.org
       keywords="IDE education programming EV3 mindstorms lego",
       platforms=["Windows", "macOS", "Linux"],
       python_requires=">=3.6",
-      install_requires=['ev3devcmd==0.39','ev3dev2simulator'],
+      install_requires=['ev3devcmd==1.0.0','ev3dev2simulator'],
       packages=["thonnycontrib.ev3dev"],
       package_data={'thonnycontrib.ev3dev': ['res/*']}
 )
