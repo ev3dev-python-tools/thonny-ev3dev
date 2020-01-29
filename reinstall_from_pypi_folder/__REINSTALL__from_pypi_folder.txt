@@ -1,0 +1,9 @@
+
+install dependencies from pypi server into python user site packages folder:
+
+    pip3 install --user -r requirements.txt  
+  
+
+force reinstall packages from pypi/ folder into python user site packages folder:
+
+    pip3 install --user --no-cache-dir --no-deps --force-reinstall -f ./pypi/ -r reinstall.txt

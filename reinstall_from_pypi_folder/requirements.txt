@@ -1,0 +1,7 @@
+arcade==2.1.3
+pyobjc;sys.platform=="darwin"
+pyyaml
+pymunk
+paramiko==2.6.0
+sftpclone==1.2.2
+rpyc==4.1.2
