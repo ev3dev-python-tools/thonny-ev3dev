@@ -19,8 +19,9 @@ do
     # skip thonny
     if [[ "$d" == "submodules/thonny" ]]; then continue; fi
 
-    package_name=${d%_package}
-    print_requirements_for_package "$d" "$package_name" 
+    #package_name=${d%_package}
+    package_name=${d#submodules/}
+    print_requirements_for_package "${d}" "$package_name" 
 done
 
 
