@@ -201,6 +201,7 @@ class Ev3ConfigurationPage(ConfigurationPage):
         ConfigurationPage.__init__(self, master)
 
         # HACK: take geometry from options window and increase its width with 5 em for extra ev3 tab
+        #       and 10 em for extra heigt for ev3 tab
         optionsWindow=self.master.master
         optionsWindow.update() # to update geometry in optionsWindow
         geometry=optionsWindow.winfo_geometry()
@@ -211,25 +212,41 @@ class Ev3ConfigurationPage(ConfigurationPage):
         # print("height:",height)
         from  thonny.ui_utils import ems_to_pixels
         width=width+ems_to_pixels(5)
+        height=height+ems_to_pixels(10)
         optionsWindow.geometry("%dx%d" % (width, height))
 
-        ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
+        # get options from workbench
         workbench=get_workbench()
-
-        for name in ('ip','username','password','rpyc_timeout'):
+        for name in ('ip','username','password','rpyc_timeout',"playfield"):
             self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
-        self.show_start_stop_buttons=create_int_var(workbench.get_option("ev3.show_start_stop_buttons"))
+
+        for name in ('show_start_stop_buttons','show_fullscreen','show_maximized','show_on_second_monitor'):
+            self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
+        #self.show_start_stop_buttons=create_int_var(workbench.get_option("ev3.show_start_stop_buttons"))
+
+        ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
+
         self.makeentry( "IP address:", self.ip, width=10)
         self.makeentry( "User name:", self.username, width=10)
         self.makeentry( "Password:", self.password, width=10)
 
-        print("show_start_stop_buttons: ", self.show_start_stop_buttons.get())
-        print("password: ", self.password.get())
+        #print("show_start_stop_buttons: ", self.show_start_stop_buttons.get())
+        #print("password: ", self.password.get())
+
+        ttk.Label(self, text="EV3 Simulator options").pack(side=tk.TOP, padx=5, pady=(20,20))
+
+        self.makeselect( "Playfield", self.playfield , ["small","large"])
+        self.makecheckbox( "Show simulator fullscreen", self.show_fullscreen)
+        self.makecheckbox( "Show simulator maximized", self.show_maximized)
+        self.makecheckbox( " Show simulator window on second monitor", self.show_on_second_monitor)
 
         ttk.Label(self, text="EV3 Advanced options").pack(side=tk.TOP, padx=5, pady=(20,20))
 
         self.makecheckbox( "Show start/stop buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
         self.makeentry( "Rpyc Timeout(secs):", self.rpyc_timeout, width=10)
+
+
+
 
     def makecheckbox(self,caption, variable, **options):
         row = ttk.Frame(self)
@@ -249,9 +266,19 @@ class Ev3ConfigurationPage(ConfigurationPage):
         entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
         return entry
 
+    def makeselect(self,caption, variable,values, **options):
+        row = ttk.Frame(self)
+        label=ttk.Label(row, width=15, text=caption, anchor='w')
+
+        entry = ttk.Combobox(row,textvariable= variable,state="readonly",values=values)
+        row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        label.pack(side=tk.LEFT)
+        entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+        return entry
+
     def apply(self):
         workbench=get_workbench()
-        for name in ('ip','username','password','rpyc_timeout','show_start_stop_buttons'):
+        for name in ('ip','username','password','rpyc_timeout','show_start_stop_buttons','show_fullscreen','show_maximized','show_on_second_monitor','playfield'):
             variable=self.__dict__[name]
             if variable.modified:
                 value = variable.get()
@@ -294,17 +321,24 @@ def get_base_ev3dev_cmd():
 #----------------------------------
 
 def run_simulator():
-    # stop current running program when opening simulator
-    # note: when a simulator is already running it will be terminated and a new one will be opened;
-    #       when we don't stop the program before that, it would give nasty error, because connection lost,
-    #       and we want a nice stop of the program if the simulator is started again
-    get_runner().cmd_stop_restart()
+    show_fullscreen=get_workbench().get_option("ev3.show_fullscreen")
+    show_maximized=get_workbench().get_option("ev3.show_maximized")
+    show_on_second_monitor=get_workbench().get_option("ev3.show_on_second_monitor")
+    playfield=get_workbench().get_option("ev3.playfield")
+
 
     # run a new simulator, where we kill the previous running if existing just to enforce a single instance
     # TODO: instead of killing run a server on the simulator to which we can connect to make
     #       an already running instance the foreground window(active)
     #        -> see thonny as example
     list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator']
+    if show_fullscreen == True:
+        list.append('-f')
+    if show_maximized == True:
+        list.append('-m')
+    if show_on_second_monitor == True:
+        list.append('-2')
+    list= list + ["-t",playfield ]
     print(list)
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
@@ -320,11 +354,15 @@ def upload(file=None):
         return
     list = get_base_ev3dev_cmd() + [ '--sleep-after', '2', 'upload','--force', file]
 
+
     env = os.environ.copy()
     proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Uploading program to EV3", autoclose=True)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
+
+
 
 def upload_current_script():
     """upload current python script to EV3"""
@@ -350,6 +388,7 @@ def upload_current_script():
             return
 
         upload(py_file)
+
     except Exception:
         error_msg = traceback.format_exc(0)+'\n'
         showerror("Error", error_msg)
@@ -399,6 +438,7 @@ def stop_ev3_program_motors_sound():
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Stop/kill all programs and motors/sound on EV3", autoclose=True)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
 
 
 def start(file=None):
@@ -418,6 +458,7 @@ def start(file=None):
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Start program on EV3", autoclose=True)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
 
 
 
@@ -443,7 +484,7 @@ def download_log(currentfile=None):
 
     if currentfile == None:
         return
-    
+
     # add ".err.log" if file doesn't end with it!
     if not currentfile.endswith(".err.log"):
         currentfile=currentfile + ".err.log"
@@ -460,6 +501,10 @@ def download_log(currentfile=None):
         from pathlib import Path
         home = str(Path.home())
         open_file(currentfile,home,True)
+    else:
+        # on failure set focus back on original file
+        get_workbench().get_editor_notebook().get_current_editor().focus_force()
+
 
 
 
@@ -516,6 +561,9 @@ def cleanup_files_on_ev3():
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "Delete files in homedir on EV3", autoclose=False)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
+
+
 
 def list_files_on_ev3():
     """cleanup files in homedir on EV3."""
@@ -527,6 +575,7 @@ def list_files_on_ev3():
                             universal_newlines=True, env=env)
     dlg = MySubprocessDialog(get_workbench(), proc, "List files in homedir on EV3", autoclose=False)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
 
 def install_rpyc_server():
     """Install rpyc server on the EV3. The server is immediately started after installation."""
@@ -540,6 +589,7 @@ def install_rpyc_server():
 
     dlg = MySubprocessDialog(get_workbench(), proc, "Install rpyc server on the EV3. The server is immediately started after installation.", autoclose=False)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
 
 def install_logging():
     """Install ev3devlogging package to the EV3."""
@@ -553,6 +603,7 @@ def install_logging():
 
     dlg = MySubprocessDialog(get_workbench(), proc, "Install ev3devlogging package to the EV3", autoclose=False)
     dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
 
 
 def cmd_interrupt_reset():
@@ -594,6 +645,10 @@ def load_plugin():
     workbench.set_default("ev3.rpyc_timeout", "0.1")
     workbench.set_default("ev3.show_start_stop_buttons", 0)
 
+    workbench.set_default("ev3.show_fullscreen", 0)
+    workbench.set_default("ev3.show_maximized", 0)
+    workbench.set_default("ev3.show_on_second_monitor", 0)
+    workbench.set_default("ev3.playfield", "small")
 
     workbench.add_configuration_page(key="EV3",title="EV3", page_class=Ev3ConfigurationPage,order=1)
 
