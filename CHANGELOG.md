@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  ### Added
  - support for thonny3 
  - added new version of simulator which supports two types of playfields (large/small)
+ - added extra configuration options for the EV3 simulator in the "options"->"EV3" tab
 
  ### Changed 
  - moved to new project website https://github.com/ev3dev-python-tools/thonny-ev3dev
