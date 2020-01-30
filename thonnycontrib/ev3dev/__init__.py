@@ -309,6 +309,7 @@ def get_credentials():
 
 def get_base_ev3dev_cmd():
 
+
     basecmd = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3devcmd']
 
     credentials =  get_credentials()
@@ -331,17 +332,29 @@ def run_simulator():
     # TODO: instead of killing run a server on the simulator to which we can connect to make
     #       an already running instance the foreground window(active)
     #        -> see thonny as example
-    list = [sys.executable.replace("thonny.exe", "pythonw.exe"), '-m', 'ev3dev2simulator']
+
+    # if called on windows, then the exec is "python" but "thonny.exe"
+    # replace this then with "pythonw.exe"  because we don't want a console window on windows
+    executable=sys.executable.replace("thonny.exe", "pythonw.exe")
+    list = [executable, '-m', 'ev3dev2simulator']
+
+    if show_on_second_monitor == True:
+        list.append('-2')
+        # on windows the second screen can only be use at start when using fullscreen
+        if sys.platform.lower().startswith('win'):
+            show_maximized=False
+            show_fullscreen=True
     if show_fullscreen == True:
         list.append('-f')
     if show_maximized == True:
         list.append('-m')
-    if show_on_second_monitor == True:
-        list.append('-2')
+
+
     list= list + ["-t",playfield ]
-    print(list)
+    #print(" ".join(list))
+    proc = subprocess.Popen(list)
     env = os.environ.copy()
-    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, env=env)
+    proc = subprocess.Popen(list, env=env)
 
 
 
