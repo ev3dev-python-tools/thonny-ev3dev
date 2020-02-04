@@ -1,7 +1,28 @@
+# requirements thonny-ev3dev
+
+# requirements ev3dev2simulator
 arcade==2.1.3
 pyobjc;sys.platform=="darwin"
 pyyaml
 pymunk
+
+# requirements ev3devcmd
 paramiko==2.6.0
-sftpclone==1.2.2
 rpyc==4.1.2
+
+# requirements ev3devlogging
+
+
+# requirements ev3devrpyc
+rpyc==4.1.2
+
+# requirements thonny 3.2.6
+jedi>=0.10
+setuptools>=33.1.1
+pyserial>=3.1.1
+pylint>=1.6.5
+astroid>=1.4.9
+docutils>=0.13.1
+mypy>=0.470
+asttokens>=1.1.10
+Send2Trash>=1.4.2

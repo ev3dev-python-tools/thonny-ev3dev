@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2020-01-31
+
  - first official release of thonny-ev3dev for thonny3 which is ready for production 
  
  ### Added

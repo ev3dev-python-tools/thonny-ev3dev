@@ -9,7 +9,9 @@ print_requirements_for_package() {
     then 
         requirements="[ ]"
     fi    
-    printf "* $package_name: $requirements\n"
+    printf "# requirements $package_name\n"
+    python3 -c "list=$requirements;print('\n'.join(list))" 
+    printf "\n"
 }    
 
 d=thonny-ev3dev
@@ -22,5 +24,10 @@ do
     package_name=${d#submodules/}
     print_requirements_for_package "${d}" "$package_name" 
 done
+
+version=`cat submodules/thonny/thonny/VERSION`
+printf "# requirements thonny $version\n"
+cat submodules/thonny/requirements.txt
+
 
 

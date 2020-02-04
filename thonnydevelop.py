@@ -12,25 +12,7 @@
 import sys
 import os
 import runpy
+import sftpclone
 path = os.path.dirname(sys.modules[__name__].__file__)
-#path = os.path.join(path, '..')
-#print(path)
 sys.path.insert(0, path)
-
-# below doesn't work with subprocess => no time to find out why??
-#
-#contextpath = os.path.join(path, 'ev3devcontext_package')
-##print(contextpath)
-#sys.path.insert(0, contextpath)
-#
-#import ev3devcontext
-#print(ev3devcontext.__file__)
-#
-#cmdpath = os.path.join(path, 'ev3devcmd_package')
-##print(cmdpath)
-#sys.path.insert(0, cmdpath)
-#
-#import ev3devcmd
-#print(ev3devcmd.__file__)
-
 runpy.run_module('thonny', run_name="__main__",alter_sys=True)

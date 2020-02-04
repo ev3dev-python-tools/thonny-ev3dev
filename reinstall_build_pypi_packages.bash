@@ -18,7 +18,7 @@ fi
 printf "\n\nforced reinstall of build packaged in pypi/ \n\n"
 # force reinstall build packages from pypi directory, but do not reinstall dependencies (reinstalling all dependencies takes long)
 #                  `-> because these are changed in development             `-> because not change in development
-$PYTHON -m pip install $USEROPTION --no-cache-dir --no-deps --force-reinstall -f pypi/ -r reinstall.txt
+$PYTHON -m pip install $USEROPTION --no-cache-dir --no-deps --force-reinstall -f pypi/ -r pypi_packages.txt
                                                                                  # `-> location of local packages
 
       
