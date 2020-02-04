@@ -52,12 +52,27 @@ example configurations:
     export PYTHON=/Applications/Thonny-3.2.4.app/Contents/Frameworks/Python.framework/Versions/3.7/bin/python3.7
     export INSTALL_IN_SYSTEM_DIR=1   
 
+helper scripts:
 
+    cleanup_python_user_site.bash
+        remove all packages in user site directory 
+        note: just deletes this directory, and then they are gone for the 'pip' installer
+
+    list_all_dependencies_plugin_as_list.bash
+       
+    list_dependencies_pypi_packages_as_list.bash
+        list dependencies of packages we are building
+        output of this command is used to generate the file 'requirements.txt'
+        which is used in the 'install_dependencies.bash' script
+
+    list_ev3devcmd_help.bash
+        shows all possible help from the ev3dev script: for its main command,
+        and all its subcommands
 
 EXPLAINING WHAT THE SCRIPTS DO
 ==============================
 
-into python GLOBAL site packages (thonny does)
+into python GLOBAL site packages 
 -------------------------------
 
 install dependencies from pypi server into python GLOBAL site packages folder:
@@ -70,8 +85,10 @@ force reinstall packages from pypi/ folder into python GLOBAL site packages fold
     pip3 install --no-cache-dir --no-deps --force-reinstall -f ./pypi/ -r reinstall.txt
 
 
-into python USER site packages (thonny does this by default for both packages as plugins)
+into python USER site packages 
 -------------------------------
+
+note: the Thonny IDE does this by default for both packages as plugins.
 
 install dependencies from pypi server into python user site packages folder:
 
