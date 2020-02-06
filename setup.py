@@ -18,9 +18,9 @@ LEGO brick using the Thonny Python IDE for beginners.
 
 Thonny-ev3dev allows you to run your EV3 program easily
 
-    on the EV3 or
-    on the PC in a simulator (default on PC)
-    on the PC remotely steering the EV3
+- on the EV3 or
+- on the PC in a simulator (default on PC)
+- on the PC remotely steering the EV3
 
 The thonny-ev3dev plugin comes with an ev3dev simulator.
 
