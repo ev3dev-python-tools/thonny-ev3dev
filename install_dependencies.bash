@@ -5,7 +5,7 @@ if [[ -z "$PYTHON" ]]
 then 
     PYTHON=python3
 fi
-if [[ -z "$INSTALL_IN_SYSTEM_DIR" ]] 
+if [[ -z "$INSTALL_IN_SYSTEM_DIR" ]]
 then
    USEROPTION="--user" 
 else   

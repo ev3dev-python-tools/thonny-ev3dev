@@ -19,6 +19,7 @@ from thonny.config_ui import ConfigurationPage
 from thonny.misc_utils import running_on_mac_os, running_on_windows
 from thonny.ui_utils import SubprocessDialog, center_window
 from thonny.ui_utils import create_string_var,create_int_var
+from thonny.ui_utils import CommonDialog
 
 
 # improved  SubprocessDialog  windows for thonny-ev3dev plugin
@@ -321,6 +322,19 @@ def get_base_ev3dev_cmd():
 # commands
 #----------------------------------
 
+ev3dev_version="2.0.0beta5"
+
+def open_ev3dev2_help():
+    import webbrowser
+    webbrowser.open_new_tab('https://ev3dev-lang.readthedocs.io/projects/python-ev3dev/en/' + ev3dev_version)
+
+
+def open_ev3dev2_api():
+    import webbrowser
+    webbrowser.open_new_tab('https://ev3dev-lang.readthedocs.io/projects/python-ev3dev/en/' + ev3dev_version + "/spec.html")
+
+
+
 def run_simulator():
     show_fullscreen=get_workbench().get_option("ev3.show_fullscreen")
     show_maximized=get_workbench().get_option("ev3.show_maximized")
@@ -351,7 +365,6 @@ def run_simulator():
 
 
     list= list + ["-t",playfield ]
-    #print(" ".join(list))
     proc = subprocess.Popen(list)
     env = os.environ.copy()
     proc = subprocess.Popen(list, env=env)
@@ -379,6 +392,7 @@ def upload(file=None):
 
 def upload_current_script():
     """upload current python script to EV3"""
+    if not currentscript_available():  return
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
     code = current_editor.get_text_widget().get("1.0", "end")
     try:
@@ -478,6 +492,7 @@ def start(file=None):
 
 def start_current_script_on_ev3():
     """upload current python script to EV3"""
+    if not currentscript_available():  return
     current_editor = get_workbench().get_editor_notebook().get_current_editor()
     code = current_editor.get_text_widget().get("1.0", "end")
     try:
@@ -554,6 +569,7 @@ def download_log_of_current_script():
     """download log of current python script from EV3"""
 
     try:
+        if not currentscript_available():  return
         #Return None, if script is not saved and user closed file saving window, otherwise return file name.
         current_editor = get_workbench().get_editor_notebook().get_current_editor()
         src_file = current_editor.get_filename(False)
@@ -563,6 +579,24 @@ def download_log_of_current_script():
     except Exception:
         error_msg = traceback.format_exc(0)+'\n'
         showerror("Error", error_msg)
+
+
+def mirror_scriptdir_on_ev3():
+    """mirror the directory of the current script to the EV3's home directory"""
+    if not currentscript_available():  return
+    current_editor = get_workbench().get_editor_notebook().get_current_editor()
+    filename= current_editor.get_filename()
+    srcdir= os.path.dirname(filename)
+
+    list = get_base_ev3dev_cmd() + ['mirror', srcdir]
+
+    env = os.environ.copy()
+    proc = subprocess.Popen(list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True, env=env)
+    dlg = MySubprocessDialog(get_workbench(), proc, "Mirror directory of current script to homedir on EV3", autoclose=False)
+    dlg.wait_window()
+    get_workbench().get_editor_notebook().get_current_editor().focus_force()
+
 
 def cleanup_files_on_ev3():
     """cleanup files in homedir on EV3."""
@@ -637,12 +671,104 @@ def command_enabled():
     return  get_runner().get_state() == "waiting_toplevel_command"
 
 def currentscript_and_command_enabled():
-    return (get_workbench().get_editor_notebook().get_current_editor() is not None
+    editor=get_workbench().get_editor_notebook().get_current_editor()
+    return ( editor is not None
             and get_runner().get_state() == "waiting_toplevel_command"
-            and get_workbench().get_editor_notebook().get_current_editor().get_filename()
-            and get_workbench().get_editor_notebook().get_current_editor().get_filename().endswith(".py")
+            and editor.get_filename()
+            and editor.get_filename().endswith(".py")
             )
 
+def currentscript_available():
+    editor=get_workbench().get_editor_notebook().get_current_editor()
+    return ( editor is not None
+             and editor.get_filename()
+             and editor.get_filename().endswith(".py")
+             )
+
+
+class AboutPluginDialog(CommonDialog):
+    def __init__(self, master):
+        super().__init__(master)
+
+        main_frame = ttk.Frame(self)
+        main_frame.grid(sticky=tk.NSEW, ipadx=15, ipady=15)
+        main_frame.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+
+        self.title("About Ev3dev plugin")
+        self.resizable(height=tk.FALSE, width=tk.FALSE)
+        self.protocol("WM_DELETE_WINDOW", self._ok)
+
+        # bg_frame = ttk.Frame(self) # gives proper color in aqua
+        # bg_frame.grid()
+
+        import tkinter.font
+        import thonnycontrib.ev3dev.version
+        import webbrowser
+        heading_font = tkinter.font.nametofont("TkHeadingFont").copy()
+        heading_font.configure(size=19, weight="bold")
+        heading_label = ttk.Label(
+            main_frame, text="Plugin thonny-ev3dev " + thonnycontrib.ev3dev.version.__version__, font=heading_font
+        )
+        heading_label.grid()
+
+        url = "https://github.com/ev3dev-python-tools/thonny-ev3dev/wiki"
+        url_font = tkinter.font.nametofont("TkDefaultFont").copy()
+        url_font.configure(underline=1)
+        url_label = ttk.Label(
+            main_frame, text=url, style="Url.TLabel", cursor="hand2", font=url_font
+        )
+        url_label.grid()
+        url_label.bind("<Button-1>", lambda _: webbrowser.open(url))
+
+        credits_label = ttk.Label(
+            main_frame,
+            text="\nMade in\n"
+                + "Radboud University \n"
+                +" Nijmegen, Netherlands",
+            style="Url.TLabel",
+            cursor="hand2",
+            font=url_font,
+            justify="center",
+        )
+        credits_label.grid()
+        credits_label.bind(
+            "<Button-1>",
+            lambda _: webbrowser.open("https://github.com/ev3dev-python-tools/thonny-ev3dev/wiki/Credits"),
+        )
+
+        import datetime
+        license_font = tkinter.font.nametofont("TkDefaultFont").copy()
+        license_font.configure(size=7)
+        license_label = ttk.Label(
+            main_frame,
+            text="Copyright (©) "
+                 + str(datetime.datetime.now().year)
+                 + " Harco Kuppens\n"
+                 + "This program comes with\n"
+                 + "ABSOLUTELY NO WARRANTY!\n"
+                 + "It is free software, and you are welcome to\n"
+                 + "redistribute it under certain conditions, see\n"
+                 + "https://opensource.org/licenses/MIT\n"
+                 + "for details",
+            justify=tk.CENTER,
+            font=license_font,
+        )
+        license_label.grid(pady=20)
+
+        ok_button = ttk.Button(main_frame, text="OK", command=self._ok, default="active")
+        ok_button.grid(pady=(0, 15))
+        ok_button.focus_set()
+
+        self.bind("<Return>", self._ok, True)
+        self.bind("<Escape>", self._ok, True)
+
+    def _ok(self, event=None):
+        self.destroy()
+
+def open_about(*args):
+    from thonny import ui_utils
+    ui_utils.show_dialog(AboutPluginDialog(get_workbench()))
 
 # load plugin
 #--------------
@@ -676,6 +802,10 @@ def load_plugin():
     image_path_killall = os.path.join(os.path.dirname(__file__), "res", "killall.gif")
 
     image_path_clean = os.path.join(os.path.dirname(__file__), "res", "clean.gif")
+    image_path_mirror = os.path.join(os.path.dirname(__file__), "res", "mirror.gif")
+
+    image_path_doc = os.path.join(os.path.dirname(__file__), "res", "doc.gif")
+    image_path_api = os.path.join(os.path.dirname(__file__), "res", "api.gif")
 
 
     # menu items (first group in device menu; all without icons)
@@ -685,7 +815,7 @@ def load_plugin():
                                 command_label="Install ev3devlogging package to the EV3.",
                                 caption="Install ev3devlogging package to the EV3.",
                                 handler=install_logging,
-                                tester=command_enabled,
+                                #tester=command_enabled,
                                 group=270,
                                 include_in_toolbar=False)
 
@@ -694,7 +824,7 @@ def load_plugin():
                                 command_label="Install rpyc server on the EV3. The server is immediately started after installation.",
                                 caption="Install rpyc server on the EV3. The server is immediately started after installation.",
                                 handler=install_rpyc_server,
-                                tester=command_enabled,
+                                #tester=command_enabled,
                                 group=270,
                                 include_in_toolbar=False)
 
@@ -704,7 +834,7 @@ def load_plugin():
                                 menu_name="tempdevice",
                                 command_label="Upload current script to EV3",
                                 handler=upload_current_script,
-                                tester=currentscript_and_command_enabled,
+                                #tester=currentscript_available,
                                 default_sequence="<F10>",
                                 group=280,
                                 caption="Upload current script to EV3",
@@ -717,22 +847,10 @@ def load_plugin():
                                 command_label="Download log of current script from EV3",
                                 caption="Download log of current script from EV3",
                                 handler=download_log_of_current_script,
-                                tester=currentscript_and_command_enabled,
+                                #tester=currentscript_available,
                                 default_sequence=None,
                                 group=280,
                                 image=image_path_log,
-                                include_in_toolbar=True)
-
-
-    get_workbench().add_command(command_id="ev3clean",
-                                menu_name="tempdevice",
-                                command_label="Cleanup EV3 by deleting all files stored in homedir on EV3",
-                                caption="Cleanup EV3 by deleting all files stored in homedir on EV3",
-                                handler=cleanup_files_on_ev3,
-                                #tester=command_enabled,
-                                default_sequence=None,
-                                group=280,
-                                image=image_path_clean,
                                 include_in_toolbar=True)
 
 
@@ -747,6 +865,30 @@ def load_plugin():
                                 #image=image_path_clean,
                                 include_in_toolbar=False)
 
+    get_workbench().add_command(command_id="ev3mirror",
+                                menu_name="tempdevice",
+                                command_label="Mirror directory of current script to homedir on EV3",
+                                caption="Mirror directory of current script to homedir on EV3",
+                                handler=mirror_scriptdir_on_ev3,
+                                #tester=currentscript_available,
+                                default_sequence=None,
+                                group=280,
+                                image=image_path_mirror,
+                                include_in_toolbar=False)
+
+    get_workbench().add_command(command_id="ev3clean",
+                                menu_name="tempdevice",
+                                command_label="Cleanup EV3 by deleting all files stored in homedir on EV3",
+                                caption="Cleanup EV3 by deleting all files stored in homedir on EV3",
+                                handler=cleanup_files_on_ev3,
+                                #tester=command_enabled,
+                                default_sequence=None,
+                                group=280,
+                                image=image_path_clean,
+                                include_in_toolbar=True)
+
+
+
 
     # menu items (third group in device menu; with icons but only on menu)
 
@@ -757,7 +899,7 @@ def load_plugin():
                                 command_label="Start current script on the EV3",
                                 caption="Start current script on the EV3",
                                 handler=start_current_script_on_ev3,
-                                tester=currentscript_and_command_enabled,
+                                #tester=currentscript_and_command_enabled,
                                 default_sequence="<Control-F10>",
                                 group=290,
                                 image=image_path_run,
@@ -787,6 +929,38 @@ def load_plugin():
                                 image=image_path_simulator,
                                 include_in_toolbar=True)
 
+    # menu items (fifth group in device menu; with icon also on toolbar)
+
+    get_workbench().add_command(command_id="ev3dev2help",
+                                #menu_name="tempdevice",
+                                menu_name="help",
+                                command_label="ev3dev2 documentation",
+                                caption="ev3dev2 documentation",
+                                handler=open_ev3dev2_help,
+                                default_sequence="<F1>",
+                                #group=330,
+                                group=50,
+                                image=image_path_doc,
+                                include_in_toolbar=False)
+
+    get_workbench().add_command(command_id="ev3dev2api",
+                                #menu_name="tempdevice",
+                                menu_name="help",
+                                command_label="ev3dev2 API",
+                                caption="ev3dev2 API",
+                                handler=open_ev3dev2_api,
+                                default_sequence="<F2>",
+                                #group=330,
+                                group=50,
+                                image=image_path_api,
+                                include_in_toolbar=True)
+
+
+
+
+
+    # about menu
+    get_workbench().add_command("ev3dev_plugin", "help", "About Ev3dev plugin", open_about, group=61)
 
 
 
