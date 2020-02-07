@@ -28,6 +28,3 @@ done
 version=`cat submodules/thonny/thonny/VERSION`
 printf "# requirements thonny $version\n"
 cat submodules/thonny/requirements.txt
-
-
-

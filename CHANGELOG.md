@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2020-02-08
+ 
+ ### Removed
+ - don't build sdist and upload packages anymore, because these wheels are also source packages
+   and are better because they contain the requirements in metadata of the package,
+   which thonny can fetch from the pypi server  before installing.
+
 ## [1.0.2] - 2020-02-06
  
  ### Added

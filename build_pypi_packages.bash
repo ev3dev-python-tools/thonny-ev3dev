@@ -1,8 +1,12 @@
+\rm -rf pypi
 mkdir -p pypi
 
 d=thonny-ev3dev
 printf "\n$d\n----------------------\n"
-python3 setup.py sdist -d pypi/ --format zip
+# Only build wheel because wheel is already source package which can be
+# installed in all platforms, and it has requirements in metadata.
+# No need to build sdist, because not needed, and has no metadata with requirements
+#python3 setup.py sdist -d pypi/ --format zip
 python3 setup.py bdist_wheel -d pypi/ 
 # see: https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives
 # The tar.gz file is a source archive whereas the .whl file is a built distribution.
@@ -22,7 +26,10 @@ do
 
     cd $d
     printf "\n$d\n----------------------\n"
-    python3 setup.py sdist -d ../../pypi/ --format zip
+    # Only build wheel because wheel is already source package which can be
+    # installed in all platforms, and it has requirements in metadata.
+    # No need to build sdist, because not needed, and has no metadata with requirements
+    #python3 setup.py sdist -d ../../pypi/ --format zip
     python3 setup.py bdist_wheel -d ../../pypi/ 
     cd -
 done
