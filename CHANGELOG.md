@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2020-02-06
+ 
+ ### Added
+ - added building of wheels and uploading them to the pypi server
+ 
+ ### Fixed 
+ - adding the thonny-ev3dev package as a wheel fixed the refusal of thonny 
+   not installing the plugin with the message "Thonny plugin without requirements".
+   The wheel fix it, because the install_requires from setup.py
+   is stored in the wheel's xxx.dist-info/METADATA file under the Requires-Dist keys. 
+   The pip installer can then fetch this information from the pypi server under the
+   info.requires_dist field, and then Thonny gets its wanted requirements.
+   
 ## [1.0.0] - 2020-02-06
 
  - first official release of thonny-ev3dev for thonny3 which is ready for production 
