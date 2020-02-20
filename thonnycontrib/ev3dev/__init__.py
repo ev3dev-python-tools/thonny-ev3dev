@@ -213,7 +213,7 @@ class Ev3ConfigurationPage(ConfigurationPage):
         # print("height:",height)
         from  thonny.ui_utils import ems_to_pixels
         width=width+ems_to_pixels(5)
-        height=height+ems_to_pixels(10)
+        height=height+ems_to_pixels(12)
         optionsWindow.geometry("%dx%d" % (width, height))
 
         # get options from workbench
@@ -237,16 +237,26 @@ class Ev3ConfigurationPage(ConfigurationPage):
         ttk.Label(self, text="EV3 Simulator options").pack(side=tk.TOP, padx=5, pady=(20,20))
 
         self.makeselect( "Playfield", self.playfield , ["small","large"])
-        self.makecheckbox( "Show simulator fullscreen", self.show_fullscreen)
-        self.makecheckbox( "Show simulator maximized", self.show_maximized)
-        self.makecheckbox( " Show simulator window on second monitor", self.show_on_second_monitor)
+        #self.makecheckbox( "Show simulator maximized", self.show_maximized)
+        import platform
+        if platform.system().lower() == "windows":
+            self.makecheckbox( "Show simulator fullscreen on second monitor", self.show_on_second_monitor)
+        else:
+            self.makecheckbox( "Show simulator fullscreen", self.show_fullscreen)
+            self.makecheckbox( "Show simulator window on second monitor", self.show_on_second_monitor)
 
         ttk.Label(self, text="EV3 Advanced options").pack(side=tk.TOP, padx=5, pady=(20,20))
 
-        self.makecheckbox( "Show start/stop buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
-        self.makeentry( "Rpyc Timeout(secs):", self.rpyc_timeout, width=10)
+        self.makecheckbox( "Show start/stop on the EV3 buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
+        self.makeentry( "Rpyc Timeout(secs)^:", self.rpyc_timeout, width=10)
 
-
+        label=ttk.Label(self,  text=(
+            '^ The "Stop all programs/motors/sound on EV3" command is faster when using the rpyc protocol but it needs\n'
+            '  the rpyc server installed on the EV3. First the rpyc protocol is tried, but if that fails the slower \n'
+            '  ssh protocol is tried. Because by default no rpyc server is installed we keep the rpyc timeout low,\n'
+            '  however sometimes a bigger rpyc timeout is needed which can be increased here.' ) )
+        label.config(font=("Courier", 10))
+        label.pack(side=tk.TOP, padx=5, pady=(20,20))
 
 
     def makecheckbox(self,caption, variable, **options):
@@ -259,7 +269,7 @@ class Ev3ConfigurationPage(ConfigurationPage):
 
     def makeentry(self,caption, variable, **options):
         row = ttk.Frame(self)
-        label=ttk.Label(row, width=15, text=caption, anchor='w')
+        label=ttk.Label(row, width=17, text=caption, anchor='w')
         entry = ttk.Entry(row,textvariable=variable, **options)
 
         row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
@@ -455,7 +465,7 @@ def stop_ev3_program_motors_sound():
     #       Note: ev3devrpy module in program making connection  also uses fixed timeout of 3 seconds (same reason)
     #
     #      Thus timeout only applies for
-    #                  Menu:  "Device" -> "Stop programs/motor/sound on EV3"
+    #                  Menu:  "Device" -> "Stop all programs/motor/sound on EV3"
     #      which has ssh fallthrough if rpyc connection fails ( in case no rpyc server on EV3)
     #
     list = get_base_ev3dev_cmd() + ['--sleep-after', '2','stop','--rpyc-timeout',get_workbench().get_option("ev3.rpyc_timeout")]
@@ -776,6 +786,10 @@ def open_about(*args):
 def load_plugin():
     """Adds EV3 buttons on toolbar and commands under Run and Tools menu. Add EV3 configuration window."""
 
+    import ev3dev2simulator
+
+    os.environ['PYTHONPATH']=os.environ['PYTHONPATH'] + os.pathsep  + ev3dev2simulator.__path__.pop()
+
     # Add EV3 configuration window
     workbench=get_workbench()
     workbench.set_default("ev3.ip", "192.168.0.1")
@@ -907,8 +921,8 @@ def load_plugin():
 
     get_workbench().add_command(command_id="ev3stop",
                                 menu_name="tempdevice",
-                                command_label="Stop program/motors/sound on EV3",
-                                caption="Stop program/motors/sound on EV3",
+                                command_label="Stop all programs/motors/sound on EV3",
+                                caption="Stop all programs/motors/sound on EV3",
                                 handler=stop_ev3_program_motors_sound,
                                 #tester=currentscript_and_command_enabled,
                                 default_sequence="<Control-F11>",
