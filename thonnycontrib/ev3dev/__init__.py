@@ -250,12 +250,13 @@ class Ev3ConfigurationPage(ConfigurationPage):
         self.makecheckbox( "Show start/stop on the EV3 buttons on toolbar. (needs restart)", self.show_start_stop_buttons)
         self.makeentry( "Rpyc Timeout(secs)^:", self.rpyc_timeout, width=10)
 
+        default_font=tk.font.nametofont("TkDefaultFont")
         label=ttk.Label(self,  text=(
             '^ The "Stop all programs/motors/sound on EV3" command is faster when using the rpyc protocol but it needs\n'
             '  the rpyc server installed on the EV3. First the rpyc protocol is tried, but if that fails the slower \n'
             '  ssh protocol is tried. Because by default no rpyc server is installed we keep the rpyc timeout low,\n'
-            '  however sometimes a bigger rpyc timeout is needed which can be increased here.' ) )
-        label.config(font=("Courier", 10))
+            '  however sometimes a bigger rpyc timeout is needed which can be increased here.' ))
+        label.config(font=(default_font.cget("family"), int(default_font.cget("size")*0.9) ))
         label.pack(side=tk.TOP, padx=5, pady=(20,20))
 
 
@@ -785,10 +786,6 @@ def open_about(*args):
 
 def load_plugin():
     """Adds EV3 buttons on toolbar and commands under Run and Tools menu. Add EV3 configuration window."""
-
-    import ev3dev2simulator
-
-    os.environ['PYTHONPATH']=os.environ['PYTHONPATH'] + os.pathsep  + ev3dev2simulator.__path__.pop()
 
     # Add EV3 configuration window
     workbench=get_workbench()
