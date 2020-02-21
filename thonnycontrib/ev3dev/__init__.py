@@ -213,7 +213,7 @@ class Ev3ConfigurationPage(ConfigurationPage):
         # print("height:",height)
         from  thonny.ui_utils import ems_to_pixels
         width=width+ems_to_pixels(5)
-        height=height+ems_to_pixels(12)
+        height=height+ems_to_pixels(14)
         optionsWindow.geometry("%dx%d" % (width, height))
 
         # get options from workbench
@@ -223,16 +223,12 @@ class Ev3ConfigurationPage(ConfigurationPage):
 
         for name in ('show_start_stop_buttons','show_fullscreen','show_maximized','show_on_second_monitor'):
             self.__dict__[name]=create_string_var(workbench.get_option("ev3."+name))
-        #self.show_start_stop_buttons=create_int_var(workbench.get_option("ev3.show_start_stop_buttons"))
 
         ttk.Label(self, text="EV3 connection settings").pack(side=tk.TOP, padx=5, pady=(5,30))
 
         self.makeentry( "IP address:", self.ip, width=10)
         self.makeentry( "User name:", self.username, width=10)
         self.makeentry( "Password:", self.password, width=10)
-
-        #print("show_start_stop_buttons: ", self.show_start_stop_buttons.get())
-        #print("password: ", self.password.get())
 
         ttk.Label(self, text="EV3 Simulator options").pack(side=tk.TOP, padx=5, pady=(20,20))
 
@@ -244,6 +240,9 @@ class Ev3ConfigurationPage(ConfigurationPage):
         else:
             self.makecheckbox( "Show simulator fullscreen", self.show_fullscreen)
             self.makecheckbox( "Show simulator window on second monitor", self.show_on_second_monitor)
+
+        ttk.Label(self, text="Warning: to use simulated bluetooth in simulator make sure you have PyBluez uninstalled!",font="BoldTkDefaultFont").pack(side=tk.TOP,padx=0, pady=(0,0))
+
 
         ttk.Label(self, text="EV3 Advanced options").pack(side=tk.TOP, padx=5, pady=(20,20))
 
