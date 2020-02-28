@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2020-02-28
+
+ ### Added
+ - improved Options menu by adding label  "Warning: to use the simulated bluetooth in the simulator make sure you have PyBluez uninstalled!!"
+ - improved Options menu for windows we only have option "show simulator
+   fullscreen on second screen" because on windows for none fullscreen mode the
+   simulator is always opened on the default screen.
+ - improved Options menu for macos where we  only have two options "show simulator
+   fullscreen" and "show simulator on second screen". Latter option is added because
+   when dragging window to other screen sometimes messes up the resolution of
+   the window. By drawing the window already at startup at the second screen
+   prevents this problem.  
+ - improved Options menu by adding caption which explains the rpyc timeout you can configure under advanced options.
+
+ ### Fixed 
+ - fixed cleanup of files on EV3 by switching to new ev3devcmd library
+
+
 ## [1.0.3] - 2020-02-08
  
  ### Removed
