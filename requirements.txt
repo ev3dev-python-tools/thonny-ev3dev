@@ -7,7 +7,7 @@ pyyaml
 pymunk
 
 # requirements ev3devcmd
-paramiko==2.6.0
+paramiko==2.10.1
 rpyc==4.1.2
 
 # requirements ev3devlogging
