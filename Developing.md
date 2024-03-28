@@ -44,8 +44,24 @@
     - https://github.com/ev3dev-python-tools/ev3dev2simulator.git
     - https://github.com/ev3dev-python-tools/ev3devrpyc.git
     - https://github.com/ev3dev-python-tools/ev3devlogging.git
+
+   Note: we clone each subproject ourselves because that is easier and less confusing than using the submodules feature in
+   git itself. 
     
  * configure context projects to be used by main project:
+     1) all projects must be on same PYTHONPATH so that they are available to each other in the same python runtime.
+     2) all projects dependencies must be installed
+
+        
+   there are several ways to do this, where the last method is preferred:
+     
+    - conventional way for any IDE for python: 
+       + we directly set the PYTHONPATH environment variable to make subprojects available to the main project
+       + hence, we add each context/X/ directory to the PYTHONPATH environment variable
+       + then when you run main python script in main project it will find the other python modules
+       + you need to install the project dependencies for each project manually with pip
+       + note: sublinking is not a viable alternative because that is not portable to Windows.
+   
     - intellij IDEA IDE:
         + make from the main project an IDEA project where the main project itself is a module within the IDEA project<br>
           Note: if you create in IDEA a new project from "existing sources" or "version control", then it automatically makes
@@ -58,42 +74,41 @@
              - add source roots to PYTHONPATH
           
           where 'roots' means all content/source roots of the main module and all of its dependencies modules!!
+        + IDEA installs all dependencies for all projects automatically for you
+        + In the IDEA IDE we can use a virtual python environment as the used python SDK for the IDEA project.
+          Each module in the project can inherit the SDK from the project, so that they all used it. 
           
-    - any IDE for python: 
-       + we directly set the PYTHONPATH environment variable to make subprojects available to the main project
-       + we add each submodules/X/ directory to the PYTHONPATH environment variable
-       + then when you run main python script in main project it will find the other python modules
      
     - new modern way for all IDEs:  **editable install**
        + install each context project as an editable install
        + also install the main module as an editable install
        + then you can edit your could and its available on the PYTHONPATH by the editable install
-       + ADVANTAGE above methods: because an editable install is also an install during the installs
+       + ADVANTAGE above conventional method: because an editable install is also an install during the installs
          automatically its dependencies are installed
-       + all modern IDE's support editable installs  
-  
+       + ADVANTAGE: this way is python's own way and is not dependent of any IDE
+       + all modern IDE's support editable installs
+       + note: when using the IDEA IDE do the editable install with the IDE and not with pip,
+               because somehow editable installs done by pip are not picked up by the IDE. 
+               Vs code however works fine with editable installs done by pip.
 
-We cloned each subproject ourselves because that is easier and less confusing than using the submodules feature in
-git itself. 
+   
 
-In an earlier version, we used  macOS soft links to fix the Python path in the main project to the subprojects,
-however that was not portable to Windows. Configuring the module dependencies in the IDEA IDE is the most natural 
-way to set up the project: just specify the dependencies, and technical details of the Python path are automatically set.
+## use a virtual env 
 
-## virtualenv python
 
-Within the IDE you are using we want to use a python SDK which is independent of the system's python installation.
+In python we do not have project support which set ups a sandbox environment for you like in languages like Rust.
+Instead you need to create this environment for your project self with an virtual env tool. ( eg. python3 -m venv ).
 
-We use "virtualenv" which is supported by the Intellij IDEA. Within the IDEA project we create an python SDK
+By using a virtual env we create a sandbox python environment which is independent of the system's python installation.
+The virtual env isolates the project from the system python.
+
+Eg. we can use "virtualenv" which is supported by the Intellij IDEA. Within the IDEA project we create an python SDK
 with virtualenv in ~/.virtualenvs/ hidden directory in your home directory.  We don't add the virtualenv into
 the project because it can become very large, and it can easy be replicated. By putting it in a special 
 location we can exclude it also from being backed up. 
 
-In the IDEA IDE we can use this virtual python environment as the used python SDK for the IDEA project.
-Each module in the project can inherit the SDK from the project, so that they all used it. 
-
 With using the "activate" script we can source this python version in an existing bash shell. Then using
-the scripts in described in README_bash_scripts.txt we can setup this python environment with all 
+the scripts described in README_bash_scripts.txt we can setup this python environment with all 
 the required python packages the project needs.
 
  
