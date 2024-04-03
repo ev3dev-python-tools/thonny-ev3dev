@@ -3,25 +3,25 @@
 # Developing thonny-ev3dev plugin
 
 ## Setup plugin project with multiple context projects (each a git project) 
- To develop the thonny-ev3dev plugin we need to have several related projects also set up.
- For example, the thonny-ev3dev uses the ev3devcmd library to implement most of its functionality. 
- But it of course also requires the Thonny package which implements the Thonny IDE for which 
- this project is a plugin. In this case, the plugin depends on the IDE. 
- Thus for a plugin to work, we need several projects installed that
- are used in the context of the plugin, therefor we call these 'context projects'.
- When you are developing in a project, a change in the project can require also a change in
- a context project. Eg. you want to develop  the thonny-ev3dev plugin but it might require   
- you to also to develop the ev3devcmd project it depends on. 
+
+ To develop a project we sometimes need to have several related projects also set up. 
+
+   For example, the thonny-ev3dev plugin for thonny uses the ev3devcmd library to implement most of its
+   functionality. But being a plugin for thonny, it of course also requires the Thonny package which implements the
+   Thonny IDE for which this project is a plugin. In this case, the plugin depends on the IDE.
+  
+ The related projects can be a project your project depends on, or can be a project your project needs as a 
+ dependency. Both cases are in context of your project, so therefore we call them 'context projects'.  
+
+ When you are developing in a project, a change in the project can require also a change in a context project.
+ Therefore it would be convenient as a developer that you can edit in both projects in your setup.
  
- To allow developing in the thonny-ev3dev plugin and some of its context
- projects we set up the thonny-ev3dev project as the main project/module in 
- the Intellij IDEA IDE, and setup its dependendent projects as dependent modules.
- The IDEA IDE conveniently lets you define the dependent modules as 
- dependencies of the main module. For python projects this means that all the
- dependent modules are automatically placed on the python path of the main module.
- Meaning that the when the main module can uses code of one of the dependent modules.
- We can work in several projects in parallel and still let them cooperate in the main 
- project.
+ To allow developing in the thonny-ev3dev plugin and its context
+ projects we set up the thonny-ev3dev project as the main project and setup 
+ the context projects within the main project. Then we can work in the main and its context projects in 
+ parallel, each having its own .git folder to do commits to its own repository.
+ All modern ide's recognise the .git folder of the main project and the context projects!
+ So we can easily commit changes done at each git repo from the IDE also.
  
  
  Instructions to setup:
@@ -29,12 +29,27 @@
  * checkout from git the main project (thonny-ev3dev)
  
      - https://github.com/ev3dev-python-tools/thonny-ev3dev.git
+
+ * In python we do not have project support which set ups a sandbox environment for you like in languages like Rust.
+   Instead you need to create this environment for your project self with an virtual env tool.
+      
+               python3 -m venv .venv 
+               source .venv/bin/activate
+
+   Our project is now isolated/sandboxed. We only install the dependencies of this project in this virtual environment.
+   We don't add the virtual env environment to the git project because it can become very large, and it can easy be replicated.
+
+ * For every new bash shell we need to load this environment with:
+
+                source .venv/bin/activate  
  
  * within the main project make a subdir context/ <br>
    we choose to have the context projects as subdirs within the main project.
+   
  * add context/ to .gitignore of the main project<br>
-   - NOTE: context/  shouldn't be in project, and must be added to only here now because we want to work on 
-     project's main modules and its context projects at the same time in a single project!! 
+   - NOTE: context/  shouldn't be in git project. The context projects in the context/ folder
+     are installed only locally because we want to work on 
+     the main and its context projects at the same time in a single project!! 
      The main project, and the context projects all have their own git project independent of each other.
                 
  * within context/ checkout from git each context project:
@@ -49,66 +64,60 @@
    git itself. 
     
  * configure context projects to be used by main project:
+
      1) all projects must be on same PYTHONPATH so that they are available to each other in the same python runtime.
-     2) all projects dependencies must be installed
+     2) all projects dependencies must be installed     
 
+ * there are several ways to do this, but currently the best method is using editable installs:
+
+     + install each context project as an editable install
+     + also install the main module as an editable install
+     + source code of the editable install, which is local in our folder, is by using this special install
+       made available on the PYTHONPATH. So all projects are available in the same python runtime! 
+     + ADVANTAGE above conventional method: because an editable install also installs its dependencies
+     + ADVANTAGE: this way is python's own way and is not dependent of any IDE
+     + all modern IDE's support editable installs
+     + note: when using the IDEA IDE do the editable install with the IDE and not with pip,
+             because somehow editable installs done by pip are not picked up by the IDE. 
+             vscode however works fine with editable installs done by pip.
+
+ * We use pip-tools to automatically install all dependencies, including the editable installs, for us.
+   The 'requirements.txt' file in the repository is generated by running:
+
+              pip-compile pyproject.toml context.txt
+
+   Where 'pyproject.toml' contains the dependencies of the project in production.  The file 'context.txt'
+   contains our editable installs. For each project X it contains a line '-e ./dir/to/project/X'.
+
+ * An editable install X in context.txt overrules a normal install X
+   in pyproject.toml. The 'pip-compile' command generates a list of all dependencies of the project
+   where each dependency is locked to a specific version. Using the lock file we can install the project
+   with the exact same dependencies on different develop machines.  
+ 
+ * On the first time we setup the project on a new machine we have to create a new virtual environment
+   for the machine:
+
+               python3 -m venv .venv 
+               source .venv/bin/activate                   
+               pip install pip-tools build
+               pip-sync 
+
+   Here 'pip-sync' automatically installs all normal and editable installs in our virtual environment.
+   
+ * If during development we change our project dependencies we have to run the pip-compile and pip-sync
+   commands again to get the virtual environment updated with the new depencies setup. If some dependency
+   is not needed anymore, then 'pip-sync' will delete it for us from the virtual environment.  
+
+
+ * The repository contains a 'project.bash' script which helps you running above commands more easily:
         
-   there are several ways to do this, where the last method is preferred:
-     
-    - conventional way for any IDE for python: 
-       + we directly set the PYTHONPATH environment variable to make subprojects available to the main project
-       + hence, we add each context/X/ directory to the PYTHONPATH environment variable
-       + then when you run main python script in main project it will find the other python modules
-       + you need to install the project dependencies for each project manually with pip
-       + note: sublinking is not a viable alternative because that is not portable to Windows.
-   
-    - intellij IDEA IDE:
-        + make from the main project an IDEA project where the main project itself is a module within the IDEA project<br>
-          Note: if you create in IDEA a new project from "existing sources" or "version control", then it automatically makes
-          a new project with the repository in a new module within that project. 
-        + make for each context/X/ context project an IDEA module within the IDEA project
-        + in the IDEA project configure the main IDEA module such that all other modules in the context/
-          directory are a dependency of the main IDEA module. Then when making 
-          a run configuration for the main project we can say that it can  
-             - add content roots to PYTHONPATH
-             - add source roots to PYTHONPATH
-          
-          where 'roots' means all content/source roots of the main module and all of its dependencies modules!!
-        + IDEA installs all dependencies for all projects automatically for you
-        + In the IDEA IDE we can use a virtual python environment as the used python SDK for the IDEA project.
-          Each module in the project can inherit the SDK from the project, so that they all used it. 
-          
-     
-    - new modern way for all IDEs:  **editable install**
-       + install each context project as an editable install
-       + also install the main module as an editable install
-       + then you can edit your could and its available on the PYTHONPATH by the editable install
-       + ADVANTAGE above conventional method: because an editable install is also an install during the installs
-         automatically its dependencies are installed
-       + ADVANTAGE: this way is python's own way and is not dependent of any IDE
-       + all modern IDE's support editable installs
-       + note: when using the IDEA IDE do the editable install with the IDE and not with pip,
-               because somehow editable installs done by pip are not picked up by the IDE. 
-               Vs code however works fine with editable installs done by pip.
-
-   
-
-## use a virtual env 
-
-
-In python we do not have project support which set ups a sandbox environment for you like in languages like Rust.
-Instead you need to create this environment for your project self with an virtual env tool. ( eg. python3 -m venv ).
-
-By using a virtual env we create a sandbox python environment which is independent of the system's python installation.
-The virtual env isolates the project from the system python.
-
-Eg. we can use "virtualenv" which is supported by the Intellij IDEA. Within the IDEA project we create an python SDK
-with virtualenv in ~/.virtualenvs/ hidden directory in your home directory.  We don't add the virtualenv into
-the project because it can become very large, and it can easy be replicated. By putting it in a special 
-location we can exclude it also from being backed up. 
-
-With using the "activate" script we can source this python version in an existing bash shell. Then using
-the scripts described in README_bash_scripts.txt we can setup this python environment with all 
-the required python packages the project needs.
+        $ source project.bash
+        usage: source project.bash  setup|activate
+        
+           setup: creates requirements.txt lock file and activates project
+           activate: activates project; requires only requirements.txt
+        
+        note: only run setup when requirements.txt file not yet exists or you changed the project dependencies
+        note: each command creates and activates automatically a new virtual environment in .venv/ if it not yet exists
 
  
