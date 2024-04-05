@@ -1,4 +1,4 @@
-for d in . submodules/* 
+for d in . context/* 
 do 
     printf "\n\n$d\n--------------------------\n"
     cd $d; 

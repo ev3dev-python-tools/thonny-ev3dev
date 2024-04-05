@@ -9,4 +9,6 @@ venv/
 *.sw?
 /dist
 *.egg-info/
-/submodules*
+/context*
+.venv/
+.vscode
