@@ -8,13 +8,13 @@ pymunk
 
 # requirements ev3devcmd
 paramiko==2.6.0
-rpyc==4.1.2
+rpyc==6.0.0
 
 # requirements ev3devlogging
 
 
 # requirements ev3devrpyc
-rpyc==4.1.2
+rpyc==6.0.0
 
 # requirements thonny 3.2.6
 jedi>=0.10
