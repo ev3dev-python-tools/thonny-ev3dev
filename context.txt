@@ -1,0 +1,6 @@
+-e .
+-e context/ev3devcmd
+-e context/ev3dev2simulator
+-e context/ev3devrpyc
+-e context/ev3devlogging
+-e context/thonny
