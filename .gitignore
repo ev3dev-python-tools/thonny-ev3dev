@@ -9,6 +9,6 @@ venv/
 *.sw?
 /dist
 *.egg-info/
-/context*
+/context/*
 .venv/
 .vscode

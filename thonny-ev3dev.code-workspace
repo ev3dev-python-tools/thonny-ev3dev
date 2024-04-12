@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "context/ev3dev2simulator"
+		},
+		{
+			"path": "context/ev3devlogging"
+		},
+		{
+			"path": "context/ev3devcmd"
+		},
+		{
+			"path": "context/ev3devrpyc"
+		}
+	],
+	"settings": {}
+}
